@@ -63,6 +63,7 @@ MODE     =     $f9        ; drawing mode
 ILLQTY   =     $35        ; ILLEGAL QUANTITY
 STRLNG   =     $B0        ; STRING TOO LONG
 BADSUB   =     $6B        ; BAD SUBSCRIPT
+NODATA   =     $2A        ; OUT OF DATA
 ERRFLG   =     $D8
 DSCTMP   =     $9D        ; STRING DESC = LEN,LO,HI
 INDEX    =     $5E        ; STR PTR
@@ -233,31 +234,32 @@ plCurs   MAC
 
 * Main Ampersand dispatcher
 * KEEP THIS AS THE FIRST ADDRESSABLE ITEM
-dispatch STZ   MAINMEM
+dispatch LDA   #$80
+         BIT   #$02       ; if 65c02 Z=1, 6502 passes over
+         BEQ   :cmos
+         JMP   cmosErr
+:cmos    STA   MAINMEM
          LDA   stat
-         BPL   :shft
-         STZ   AUXMEM
+         BPL   :bit
+         STA   AUXMEM
 
-* shft > x: shft < x
-:shft    mkptr ampShft;zptr
+* bit (n,x)
+:bit     mkptr ampBit;zptr
          JSR   tryCmd
-         BEQ   :stroke
-         LDA   #less_t
-         CMP   (TXTPTR)
-         BEQ   :left
-         JSR   chkGtr
+         BEQ   :iniStk
+         JSR   CHKOPN
+         JSR   GETBYT
+         PHX
+         JSR   CHKCOM
          JSR   :parse
+         PLX
+:loop1   BEQ   :and
          LSR
-         JMP   :save
-:left    JSR   chkLess
-         JSR   :parse
-         ASL
-:save    TAY
-         LDA   #$00
-         JSR   INT2FP
-         LDX   VARPNT
-         LDY   VARPNT+1
-         JSR   MOVMF
+         DEX
+         BRA   :loop1
+:and     AND   #$01
+         JSR   saveByt
+         JSR   CHKCLS
          RTS
 :parse   JSR   PTRGET
          LDA   VALTYP
@@ -274,6 +276,64 @@ dispatch STZ   MAINMEM
 :ill     LDX   #ILLQTY  
          JMP   DOERR
 
+* inistk
+:iniStk  mkptr ampIni;zptr
+         JSR   tryCmd
+         BEQ   :stkptr
+         STZ   stack
+         RTS
+
+* stkptr > x
+:stkptr  mkptr ampPtr;zptr
+         JSR   tryCmd
+         BEQ   :psh
+         JSR   chkGtr
+         JSR   PTRGET
+         LDA   VALTYP
+         BNE   :err
+         LDA   stack
+         JSR   saveByt
+         RTS
+
+* psh < x
+:psh     mkptr ampPh;zptr
+         JSR   tryCmd
+         BEQ   :pul
+         JSR   chkLess
+         JSR   GETBYT
+         LDY   stack
+         INY
+         CPY   #$20
+         BCC   :goPh
+         LDY   #$01
+:shftS   LDA   stack+1,Y
+         STA   stack,Y
+         INY
+         CPY   #$1F
+         BEQ   :goPh
+         BRA   :shftS
+:goPh    TXA
+         STA   stack,Y
+         STY   stack
+         RTS
+
+* pul > x
+:pul     mkptr ampPl;zptr
+         JSR   tryCmd
+         BEQ   :stroke
+         JSR   chkGtr
+         JSR   PTRGET
+         LDA   VALTYP
+         BNE   :err
+         LDY   stack
+         BEQ   :noData
+         LDA   stack,Y
+         DEC   stack
+         JSR   saveByt
+         RTS
+:noData  LDX   #NODATA
+         JMP   DOERR
+         
 * stroke#brush at x,y
 :stroke  mkptr ampStk;zptr
          JSR   tryCmd
@@ -515,6 +575,15 @@ chkStep  LDA   #step_t
          JMP   CHRGET
 :err     JMP   SNERR
 
+* save A in the last variable
+saveByt  TAY
+         LDA   #$00
+         JSR   INT2FP
+         LDX   VARPNT
+         LDY   VARPNT+1
+         JSR   MOVMF
+         RTS
+
 * Initialize double hi-res and DHRLIB.
 * Assumes PR#3 already done.
 dhrInit  JSR   HGR
@@ -529,17 +598,15 @@ dhrInit  JSR   HGR
          STA   AUXMEM
          JSR   HGRCLR
          STA   MAINMEM
-         LDA   #$00
-         STA   X0
-         STA   X0+1
-         STA   Y0
+         STZ   X0
+         STZ   X0+1
+         STZ   Y0
+         STZ   MODE
          LDA   #$FF
          STA   CLRBAS1
          STA   CLRBAS2
          LDA   #$20
          STA   PAGE
-         LDA   #$00
-         STA   MODE
          RTS
 
 * Set color mask at ZP address Y to A + 16*X.
@@ -1241,6 +1308,17 @@ mul7     STA   fac1
          STA   prod+1
          RTS
 
+cmosErr  JSR   BELL
+         LDY   #$00
+:PR      LDA   noCMOS,Y
+         CMP   #$00
+         BEQ   :restart
+         JSR   COUT
+         INY
+         JMP   :PR
+:restart JSR   STKINI
+         JMP   RESTART
+
 ampDHR   ASC   'DHR',00
 ampStk   ASC   'STROKE',00
 ampMode  ASC   'MODE',00
@@ -1250,7 +1328,13 @@ ampTrap  ASC   'TRAP',00
 ampDraw  DFB   draw_t,0
 ampTile  ASC   'TILE',00
 ampPrint DFB   print_t,0
-ampShft  ASC   'SHFT',00
+ampBit   ASC   'BIT',00
+ampIni   ASC   'INISTK',00
+ampPtr   ASC   'STKPTR',00
+ampPh    ASC   'PSH',00
+ampPl    ASC   'PUL',00
+
+noCMOS   ASC   "DHRLIB REQUIRES 65C02",00
 
 * Offset to the next draw code.
 * (color,mode,draw,plot,hline,line,fill,stroke)
@@ -1283,10 +1367,11 @@ brushes  HEX   0403f0f0f0
          HEX   ffffffffffffffffffff7ffffffffffe0ffffffffff0
          HEX   007ffffffe00
 
-* buffers for trapezoid fills
+* buffers for trapezoid fills and undo stack
          
 leftBuf  DS    $100
 rightBuf DS    $100
+stack    DS    $20
 
 * table of tile row addresses
 

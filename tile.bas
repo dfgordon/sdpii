@@ -67,9 +67,9 @@
 140 rem fill grid
 141 gosub 130
 142 for j=0 to ly*8-1: for i=0 to lx*2-1
-143 addr = a0 + 2 + id*tSize + j*lx*2 + i: st = peek(addr)
-144 for bit=0 to 6: if st/2<>int(st/2) then &stroke #1 at dx*(i*7+bit)+4,yg+j*dy+2
-145 &shft > st: next: next: next: return
+143 addr = a0 + 2 + id*tSize + j*lx*2 + i
+144 for bit=0 to 6: st = peek(addr): &bit (bit,st): if st then &stroke #1 at dx*(i*7+bit)+4,yg+j*dy+2
+145 next: next: next: return
 
 200 rem preview
 210 gosub 130: for i = 0 to 1: for j = 0 to 1: &tile #id at 21+i*lx,1+j*ly: next: next
