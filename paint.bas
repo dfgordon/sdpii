@@ -68,8 +68,8 @@
 114  gosub 700: return
 
 120 rem brush
-121 if peek(49249)>127 then br = br - 1: if br < 0 then br = 11
-122 if peek(49249)<128 then br = br + 1: if br > 11 then br = 0
+121 if peek(49249)>127 then br = br - 1: if br < 0 then br = 7
+122 if peek(49249)<128 then br = br + 1: if br > 7 then br = 0
 123  gosub 10: return
 
 130 rem mode
@@ -144,7 +144,7 @@
 630 goto 40
 
 650 rem append
-660 home: input "load path: ";a$: print chr$(4);"bload ";a$;",A";addr: addr = addr + peek (48840) + 256 * peek (48841) - 1: goto 40
+660 &inistk: home: input "load path: ";a$: print chr$(4);"bload ";a$;",A";addr: addr = addr + peek (48840) + 256 * peek (48841) - 1: goto 40
 
 670 rem load
 680 addr = a0: goto 650

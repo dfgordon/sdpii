@@ -1059,7 +1059,7 @@ draw     cp16  DRAWPTR;zptr
          JMP   :next
 :line    CMP   #$05
          BNE   :trap
-         JSR   :getxy     ; code,x21,x2h,y2,x1l,x1h,12
+         JSR   :getxy     ; code,x21,x2h,y2,x1l,x1h,y1
          LDA   X0
          PHA
          LDA   X0+1
@@ -1340,7 +1340,7 @@ noCMOS   ASC   "DHRLIB REQUIRES 65C02",00
 * (color,mode,draw,plot,hline,line,fill,stroke)
 cmdLen   HEX   03,02,03,04,06,07,0B,05
 
-brushTbl HEX   00000005000b001700310051009e0118012e016c017a
+brushTbl HEX   00000005000b001700310051009e
 brushes  HEX   0403f0f0f0
          HEX   0804ffffffff
          HEX   0c057fe0fff0fff0fff07fe0
@@ -1358,14 +1358,6 @@ brushes  HEX   0403f0f0f0
          HEX   ffffffffffffffffffffffffffff7ffffffffffe3fff
          HEX   fffffffc1ffffffffff807ffffffffe001ffffffff80
          HEX   003ffffffc000003ffffc000
-         HEX   0c0a3fc07fe0fff0fff0fff0fff0fff0fff07fe03fc0
-         HEX   181401ff8007ffe01ffff83ffffc7ffffe7ffffeffff
-         HEX   ffffffffffffffffffffffffffffffffffffffffffff
-         HEX   7ffffe7ffffe3ffffc1ffff807ffe001ff80
-         HEX   18043ffffcffffffffffff3ffffc
-         HEX   3008007ffffffe000ffffffffff07ffffffffffeffff
-         HEX   ffffffffffffffffffff7ffffffffffe0ffffffffff0
-         HEX   007ffffffe00
 
 * buffers for trapezoid fills and undo stack
          

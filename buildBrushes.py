@@ -1,6 +1,11 @@
 '''Metaprogram creating HEX pseudo-ops representing elliptical brushes.'''
 
-grids = [(4,3),(8,4),(12,5),(18,8),(24,10),(36,15),(48,20),(12,10),(24,20),(24,4),(48,8)]
+# this has the elliptical shapes (not found to be so useful)
+#grids = [(4,3),(8,4),(12,5),(18,8),(24,10),(36,15),(48,20),(12,10),(24,20),(24,4),(48,8)]
+
+# this has only the roughly circular ones
+grids = [(4,3),(8,4),(12,5),(18,8),(24,10),(36,15),(48,20)]
+
 asmStr = ''
 
 def hc(x,bits):

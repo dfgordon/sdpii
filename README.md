@@ -5,6 +5,7 @@ This is an Apple II double high resolution (DHR) graphics package.  Components i
 * `dhrlib.S` - assembly language subroutines with Applesoft ampersand interface
 * `tile.bas` - program to build tile sets, e.g., for fonts or scrolling maps
 * `paint.bas` - program to create and encode artwork
+* `repaint.bas` - program to modify artwork
 * `font1.json` - file image for a DHR font
 * `dhrlib.json` - file image of assembled DHRLIB
 * `buildBrushes.py` - metaprogram to form brushes
