@@ -214,7 +214,7 @@ rorClr   MAC
          ROR   clrMask2
          <<<
 
-phCurs   MAC
+phXY     MAC
          LDA   X0
          PHA
          LDA   X0+1
@@ -223,7 +223,7 @@ phCurs   MAC
          PHA
          <<<
 
-plCurs   MAC
+plXY     MAC
          PLA
          STA   Y0
          PLA
@@ -628,6 +628,7 @@ setClr   CPX   #$10
          JMP   DOERR
 
 * plot one pixel with color and mode mask
+* (really plots all pixels in BITPOS)
 plot     JSR   setPos     ; plot at X0,Y0 (slow)
 plotc    PHP              ; plot at cursor (faster)
          PHX
@@ -781,35 +782,80 @@ calcOff  JSR   iniLine
 :fin     RTS
 
 * draw horizontal line from X0,Y0 to A+X*256,Y0.
-* cursor updated. X0,Y0 unchanged. DX has A+X*256-X0+1
+* requires X0<A+X*256.
+* cursor updated. X0,Y0 unchanged.
 hline    SEC
          SBC   X0
-         STA   DX
+         STA   HCOUNT
          TXA
          SBC   X0+1
-         STA   DX+1
-         inc16 DX
-         JSR   setPos
-hlineTo  cp16  DX;HCOUNT
-         LDA   HCOUNT+1
-         STA   HGRQUAD
-         BMI   :go
-         EOR   #$FF
          STA   HCOUNT+1
-         LDA   HCOUNT
-         EOR   #$FF
-         STA   HCOUNT
          inc16 HCOUNT
-:go      JSR   plotc
-         inc16 HCOUNT
-         LDA   HCOUNT
-         BNE   :cont
+         JSR   setPos
+:go      JSR   fastLn
          LDA   HCOUNT+1
-         BNE   :cont
-         RTS
-:cont    LDA   HGRQUAD    ; set N
-         JSR   movHor
+         BEQ   :fin
+         DEC   HCOUNT
+         DEC   HCOUNT+1
          BRA   :go
+:fin     RTS
+
+* Draw horizontal line assuming cursor is set, we are moving
+* right, and number of pixels to set is in low byte of HCOUNT.
+fastLn   LDA   HCOUNT
+         BNE   :ok
+:fin     RTS
+:ok      CMP   #$07
+         BCC   :rmndr
+         LDA   BITPOS
+         CMP   #%10000001
+         BNE   :rmndr
+
+:do7     LDY   COLUMN
+         LDA   MODE
+         BPL   :dither
+         LDA   #$FF
+         BRA   :pix
+:dither  LDA   ROWPTR+1
+         AND   #%100
+         LSR
+         LSR
+         TAX
+         LDA   (ROWPTR),Y
+         EOR   clrMask1,X
+:pix     EOR   (ROWPTR),Y
+         STA   (ROWPTR),Y
+         SEC
+         LDA   HCOUNT
+         SBC   #$07
+         STA   HCOUNT
+:adv     rolClr
+         LDA   CHKAUX
+         BMI   :same40c
+         INC   COLUMN
+:same40c swBank
+:chk     LDA   HCOUNT
+         BEQ   :fin
+         CMP   #$07
+         BCC   :rmndr
+         BRA   :do7
+
+:rmndr   LDX   BITPOS
+         TXA
+:loop    DEC   HCOUNT
+         BEQ   :go
+         BIT   #%01000000
+         BNE   :go
+         TXA   
+         ASL
+         TAX
+         ORA   BITPOS
+         STA   BITPOS
+         BRA   :loop
+:go      JSR   plotc
+         STX   BITPOS
+         JSR   incHor
+         BRA   :chk
 
 * Move cursor horizontally. No bounds check. X0 unchanged.
 * Direction given by N.  For vertical use ROM.
@@ -898,7 +944,7 @@ setPos   LDA   X0
 * Fill a trapezoid using horizontal lines
 * upper segment is X0,x1,Y0.
 * lower segment is x2,x3,y1
-trap     phCurs
+trap     phXY
          JSR   setPos
          mkptr leftBuf;zptr
          LDA   x2
@@ -915,7 +961,7 @@ trap     phCurs
          LDX   x3+1
          LDY   y1
          JSR   calcOff
-         plCurs
+         plXY
 
 * use x2,x3 to save starting X0,x1
          cp16  X0;x2
@@ -960,49 +1006,43 @@ trap     phCurs
          RTS
 
 * Stroke brush X at X0,Y0
-stroke   PHX              ; brush
-         JSR   setPos
-* setup zptr
-         mkptr brushes;zptr
-         PLA
-         ASL
+stroke   mkptr brushes;zptr
+         TXA
          TAY
          CLC
-         LDA   brushTbl+1,Y
+         LDA   brushTbl,Y
          ADC   zptr
          STA   zptr
-         LDA   brushTbl,Y
+         LDA   #$00
          ADC   zptr+1
          STA   zptr+1
-* setup iterations
-         LDY   #$00
+         LDA   (zptr)
+         STA   DY         ; rows
+         STA   x1         ; use as ptr
+         STZ   x1+1
+         inc16 zptr
+         add16 zptr;x1
+         STZ   y1         ; counter
+:nextLn  phXY
+         LDY   y1
+         CLC
          LDA   (zptr),Y
-         STA   DX
-         INY
-         LDA   (zptr),Y
-         STA   DY
-:loopy   LDX   #$00
-:nextCol INY
-         LDA   (zptr),Y
-         STA   stat
-:loopx   ASL   stat
-         BCC   :nextx
-         JSR   plotc
-:nextx   INX
-         CPX   DX
-         BEQ   :nexty
-         JSR   incHor
-         TXA
-         BIT   #$07
-         BEQ   :nextCol
-         BRA   :loopx
-:nexty   DEC   DY
-         BEQ   :fin
-         INC   Y0
-         PHY
+         ADC   X0
+         STA   X0
+         LDA   #$00
+         ADC   X0+1
+         STA   X0+1
+         LDA   (x1),Y
+         STA   HCOUNT
          JSR   setPos
-         PLY
-         BRA   :loopy
+         JSR   fastLn
+         plXY
+         INC   Y0
+         INC   y1
+         LDA   y1
+         CMP   DY
+         BEQ   :fin
+         BRA   :nextLn
 :fin     RTS
          
 * Render a binary coded drawing with offset DX,DY.
@@ -1078,7 +1118,7 @@ draw     cp16  DRAWPTR;zptr
          JSR   :getx
          STA   x1
          STX   x1+1
-         phCurs
+         phXY
          JSR   :getxy
          cp16  X0;x2
          LDA   Y0
@@ -1086,7 +1126,7 @@ draw     cp16  DRAWPTR;zptr
          JSR   :getx
          STA   x3
          STX   x3+1
-         plCurs
+         plXY
          JSR   trap
          JMP   :next
 :stroke  CMP   #$07
@@ -1340,29 +1380,35 @@ noCMOS   ASC   "DHRLIB REQUIRES 65C02",00
 * (color,mode,draw,plot,hline,line,fill,stroke)
 cmdLen   HEX   03,02,03,04,06,07,0B,05
 
-brushTbl HEX   00000005000b001700310051009e
-brushes  HEX   0403f0f0f0
-         HEX   0804ffffffff
-         HEX   0c057fe0fff0fff0fff07fe0
-         HEX   12081ffe007fff80ffffc0ffffc0ffffc0ffffc07fff
-         HEX   801ffe00
-         HEX   180a07ffe03ffffc7ffffeffffffffffffffffffffff
-         HEX   ff7ffffe3ffffc07ffe0
-         HEX   240f007fffe00003fffffc000fffffff003fffffffc0
-         HEX   7fffffffe0fffffffff0fffffffff0fffffffff0ffff
-         HEX   fffff0fffffffff07fffffffe03fffffffc00fffffff
-         HEX   0003fffffc00007fffe000
-         HEX   30140003ffffc000003ffffffc0001ffffffff8007ff
-         HEX   ffffffe01ffffffffff83ffffffffffc7ffffffffffe
-         HEX   ffffffffffffffffffffffffffffffffffffffffffff
-         HEX   ffffffffffffffffffffffffffff7ffffffffffe3fff
-         HEX   fffffffc1ffffffffff807ffffffffe001ffffffff80
-         HEX   003ffffffc000003ffffc000
+brushTbl
+         HEX   00,07,10,1b,2c,41,60
+brushes
+         HEX   03
+         HEX   000000
+         HEX   040404
+         HEX   04
+         HEX   00000000
+         HEX   08080808
+         HEX   05
+         HEX   0100000001
+         HEX   0a0c0c0c0a
+         HEX   08
+         HEX   0301000000000103
+         HEX   0c1012121212100c
+         HEX   0a
+         HEX   05020100000000010205
+         HEX   0e14161818181816140e
+         HEX   0f
+         HEX   090604020100000000000102040609
+         HEX   12181c2022242424242422201c1812
+         HEX   14
+         HEX   0e0a070503020100000000000001020305070a0e
+         HEX   141c22262a2c2e3030303030302e2c2a26221c14
 
 * buffers for trapezoid fills and undo stack
          
-leftBuf  DS    $100
-rightBuf DS    $100
+leftBuf  DS    $C0
+rightBuf DS    $C0
 stack    DS    $20
 
 * table of tile row addresses
