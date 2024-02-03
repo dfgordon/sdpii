@@ -12,19 +12,24 @@ This is an Apple II double high resolution (DHR) graphics package.  Components i
 
 ## Status
 
-This is likely to be a moving target for some time
+Getting closer...
+
+## Build
+
+Building requires PowerShell 7.4, Merlin32, and a2kit.  From PowerShell get to the project directory and run `build.ps1`.  You should now have a bootable WOZ in the `build` directory containing everything needed.  By default every level of bounds checking is enabled (see below).
 
 ## Ampersands
 
-To use the ampersands, assemble `dhrlib.S` in Merlin 8, or use `a2kit` to restore `dhrlib.json` to a disk image.  Once you have the object file,
+To try the ampersand library in immediate mode, just boot the floppy. You should get the FP prompt with the ampersands and a font preloaded.  Try this:
 ```bas
-BLOAD DHRLIB
-PR#3
-POKE 1013,76
-POKE 1014,0
-POKE 1015,64 
+&dhr
+&hcolor = 11
+&trap at 10,50,10 to 20,30,50
+&hcolor = 1,1,2,2
+&stroke #7 at 500,100
+&print "Hello World!" at 1,1
 ```
-The ampersands should now be ready.
+The (232) pointer is shared by `&PRINT`, `&TILE`, and `&DRAW`, so be sure to reset it as needed.
 
 ### Graphics
 
@@ -45,6 +50,16 @@ The ampersands should now be ready.
 * `& stkptr > real` - copy istack pointer to real variable
 * `& psh < aexpr` - push value of expression onto istack
 * `& pul > real` - pull byte from istack and store in real variable
+
+## Bounds Checking and Optimization
+
+The lowest level bounds check prevents any stores outside the screen buffer.  If an out of bounds store makes it to this level the result is simply a clipped drawing.
+
+The next level of bounds checking is cursor wrap-around.  Signed horizontal coordinates work gracefully within the range `-1024 <= x < 1024` (still some issues as of this writing).  Outside this range the wrapping is difficult to predict, but will still keep the cursor on screen.
+
+The highest level bounds checks occur during ampersand parsing.  Any out of bounds coordinate throws an `ILLEGAL QUANTITY ERROR`.  If this check is active, wrapping is usually prevented.
+
+Optimization for a given purpose can be achieved by using conditional assembly to bypass one or more of the three kinds of bounds checks.
 
 ## About Apple II Graphics
 

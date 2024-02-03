@@ -3,11 +3,19 @@
 
 * Ampersand commands for double-hi-res.
 * Also an interpreter for binary encoded drawing commands.
+* TODO: HPLOT - to +, allow big TRAPs
 
 * DHR Cursor Notes
 * consists of ROWPTR,BITPOS,COLUMN, and state of
 * TXTPAGE soft switch (MAIN/AUX memory).
 * We re-use some of the HGR cursor locations.
+
+* Conditional assembly
+
+_safe    =     1          ; protect memory
+_wrap    =     1          ; wrap cursor
+_bound   =     1          ; bounds check &s
+maxBrsh  =     7
 
 * Token overloads
 
@@ -50,7 +58,7 @@ CLRBAS2  =     $e4        ; base color mask 2
 COLUMN   =     $e5        ; same (dhr x/14)
 PAGE     =     $e6        ; same
 DRAWPTR  =     $e8        ; similar
-LINNUM   =     $50        ; same, word
+X00      =     $50        ; LINNUM, word
 DX       =     $d0        ; same, word
 DY       =     $d2        ; same
 HGRQUAD  =     $d3        ; same
@@ -80,8 +88,8 @@ BELL     =     $FF3A
 PRBYTE   =     $FDDA
 COUT     =     $FDED
 DATA     =     $D995
-CHRGET   =     $B1
-CHRGOT   =     $B7
+CHRGET   =     $00B1
+CHRGOT   =     $00B7
 CHKCOM   =     $DEBE
 CHKOPN   =     $DEBB
 CHKCLS   =     $DEB8
@@ -113,6 +121,7 @@ INCRY    =     $F504
 DECRY    =     $F4D5
 HGR      =     $F3E2
 HGRCLR   =     $F3F2
+BITTAB   =     $F5B2
 
 * Other ROM routines
 
@@ -135,27 +144,13 @@ MAINMEM  =     $C054
 AUXMEM   =     $C055
 CHKAUX   =     $C01C
 
-div      MAC
-         LDA   ]1
-         STA   prod
-         LDA   ]2
-         STA   prod+1
-         LDA   ]3
-         STA   fac1
-         JSR   divwb
-         <<<
-
 swBank   MAC
          LDA   CHKAUX
-         EOR   #$80
-         ROL
-         LDA   #$00
-         ROL
-         PHX
-         TAX
-         STA   MAINMEM,X
-         PLX
-         <<<
+         BMI   main
+         LDA   AUXMEM
+         BRA   cont
+main     LDA   MAINMEM
+cont     <<<
 
 swap     MAC
          LDA   ]1
@@ -230,6 +225,66 @@ plXY     MAC
          STA   X0+1
          PLA
          STA   X0
+         <<<
+
+phX0     MAC
+         LDA   X0+1
+         PHA
+         LDA   X0
+         PHA
+         <<<
+         
+plX0     MAC
+         PLA
+         STA   X0
+         PLA
+         STA   X0+1
+         <<<
+
+lt8      MAC
+         LDA   ]1
+         CMP   ]2
+         BCC   cont
+         JMP   illQ
+cont     <<<
+
+lt16     MAC
+         LDA   ]2+1
+         CMP   ]1+1
+         BMI   err
+         BNE   cont
+         LDA   ]1
+         CMP   ]2
+         BCC   cont
+err      JMP   illQ
+cont     <<<
+
+* paint screen, protecting memory if safe=1
+paint    MAC
+         DO    _safe
+         LDX   ROWPTR+1
+         CPX   #$20
+         BCC   bad
+         CPX   #$40
+         BCS   bad
+         CPY   #$28
+         BCS   bad
+         STA   (ROWPTR),Y
+bad      FIN
+         DO    _safe-1
+         STA   (ROWPTR),Y
+         FIN
+         <<<
+
+wrapCol  MAC
+         DO    _wrap
+         LDA   COLUMN
+tst      CMP   ]1
+         BCC   cont
+         SBC   ]1
+         BRA   tst
+cont     STA   COLUMN
+         FIN
          <<<
 
 * Main Ampersand dispatcher
@@ -341,10 +396,12 @@ dispatch LDA   #$80
          JSR   chkPnd
          JSR   GETBYT
          PHX
+         JSR   bndBrsh
          JSR   chkAt
          JSR   GETNUM
+         JSR   bound
          STX   Y0
-         cp16  LINNUM;X0
+         cp16  X00;X0
          PLX
          BEQ   :point
          DEX              ; ref brush to 0
@@ -371,19 +428,22 @@ dispatch LDA   #$80
          BNE   :iniCurs
 :loop    JSR   CHRGET
          JSR   GETNUM
+         JSR   bound
          TXA
          TAY
-         LDA   LINNUM
-         LDX   LINNUM+1
+         LDA   X00
+         LDX   X00+1
          JSR   lineTo
          LDA   #to_t
          CMP   (TXTPTR)
          BEQ   :loop
          JMP   :close
 :iniCurs JSR   GETNUM
+         JSR   bound
          STX   Y0
-         cp16  LINNUM;X0
-         JSR   setPos
+         cp16  X00;X0
+         JSR   setHCurs
+         JSR   setVCurs
          LDA   #to_t
          CMP   (TXTPTR)
          BEQ   :loop
@@ -403,7 +463,7 @@ dispatch LDA   #$80
          BEQ   :trap
          JSR   GETBYT
          PHX
-         CMP   #','
+         CMP   #44        ; comma
          BEQ   :dither
          PHX
          PHX
@@ -437,39 +497,46 @@ dispatch LDA   #$80
 
          JSR   NUMEVL
          JSR   GETADR
-         cp16  LINNUM;X0
+         JSR   boundX
+         cp16  X00;X0
          JSR   CHKCOM
          JSR   GETNUM
+         JSR   bound
          STX   Y0
-         cp16  LINNUM;x1
+         cp16  X00;x1
 
          JSR   chkTo
 
          JSR   NUMEVL
          JSR   GETADR
-         cp16  LINNUM;x2
+         JSR   boundX
+         cp16  X00;x2
          JSR   CHKCOM
          JSR   GETNUM
+         JSR   bound
          STX   y1
-         cp16  LINNUM;x3
+         cp16  X00;x3
 
-         JSR   trap
+         lt8   Y0;y1
+         lt16  X0;x1
+         lt16  x2;x3
+
+:ok      JSR   trap
          JMP   :close
 
-* draw at x0,y0
+* draw at dx,dy.
+* cannot bounds check at this level.
+* dx,dy are treated as int16.
 :draw    mkptr ampDraw;zptr
          JSR   tryCmd
          BEQ   :tile
          JSR   chkAt
          JSR   NUMEVL
          JSR   GETADR
-         cp16  LINNUM;DX
+         cp16  X00;DX
          JSR   CHKCOM
          JSR   NUMEVL
-         JSR   GETADR     ; promote DY to 16 bits
-                          ; because we want negative offsets
-         STY   DY
-         STA   HGRQUAD    ; high, not needed?
+         JSR   GETADR     ; use X00 for 16 bit DY
          JSR   draw
          JMP   :close
 
@@ -482,9 +549,10 @@ dispatch LDA   #$80
          PHX
          JSR   chkAt
          JSR   GETNUM
+         JSR   bndTxt
          TXA
          TAY
-         LDA   LINNUM
+         LDA   X00
          TAX
          PLA
          DEX
@@ -505,9 +573,10 @@ dispatch LDA   #$80
          STY   stat
          JSR   chkAt
          JSR   GETNUM
+         JSR   bndTxt
          TXA
          TAY
-         LDA   LINNUM
+         LDA   X00
          TAX
          DEX
          DEY
@@ -557,7 +626,7 @@ tryCmd   LDA   TXTPTR
          LDA   #$01
          RTS
 
-chkPnd   LDA   #'#'
+chkPnd   LDA   #35        ; pound
          DFB   $2C        ; fake BIT to skip next line
 chkAt    LDA   #at_t
          DFB   $2C
@@ -612,9 +681,9 @@ dhrInit  JSR   HGR
 * Set color mask at ZP address Y to A + 16*X.
 * If X>15 or A>15 throw error.
 setClr   CPX   #$10
-         BCS   :err
+         BCS   illQ
          CMP   #$10
-         BCS   :err
+         BCS   illQ
          STA   $00,Y
          TXA
          ASL
@@ -624,12 +693,50 @@ setClr   CPX   #$10
          ORA   $00,Y    
          STA   $00,Y
          RTS
-:err     LDX   #ILLQTY
+
+illQ     LDX   #ILLQTY
          JMP   DOERR
+
+* check X00,X within 560x192 DHR grid
+bound    DO    _bound
+         CPX   #$C0
+         BCS   illQ
+         FIN
+boundX   DO    _bound
+         LDA   X00+1
+         CMP   #$02
+         BCC   :ok
+         BNE   illQ
+         LDA   X00
+         CMP   #$30
+         BCS   illQ
+         FIN
+:ok      RTS
+
+* check X00,X within 40x24 text grid.
+* assumes indexing from 1.
+bndTxt   DEX
+         CPX   #$18
+         BCS   illQ
+         INX
+         LDA   X00+1
+         BNE   illQ
+         LDA   X00
+         DEC
+         CMP   #$28
+         BCS   illQ
+         INC
+         RTS
+
+* check brush in X
+bndBrsh  CPX   #maxBrsh+1
+         BCS   illQ
+         RTS
 
 * plot one pixel with color and mode mask
 * (really plots all pixels in BITPOS)
-plot     JSR   setPos     ; plot at X0,Y0 (slow)
+plot     JSR   setHCurs   ; plot at X0,Y0 (slow)
+         JSR   setVCurs
 plotc    PHP              ; plot at cursor (faster)
          PHX
          PHY
@@ -650,7 +757,7 @@ plotc    PHP              ; plot at cursor (faster)
                           ; 1 ^ 0=unwanted -> 1=flip
 :pix     AND   BITPOS
          EOR   (ROWPTR),Y
-         STA   (ROWPTR),Y
+         paint
          PLY
          PLX
          PLP
@@ -706,11 +813,13 @@ iniLine  PHA              ; x1 low
 line     PHA
          PHX
          PHY
-         JSR   setPos
+         JSR   setHCurs
+         JSR   setVCurs
          PLY
          PLX
          PLA
 * Draw line from cursor to A+X*256,Y.
+* Cursor,X0,Y0 must be consistent.
 * Cursor,X0,Y0 are updated.
 * adapted from similar HGR routine
 lineTo   JSR   iniLine
@@ -769,7 +878,7 @@ calcOff  JSR   iniLine
          PHY
          LDY   stat
          LDA   byt
-         STA   (zptr),Y  ; TODO: bounds check
+         STA   (zptr),Y
          INC   stat
          PLY
          CLC
@@ -791,7 +900,8 @@ hline    SEC
          SBC   X0+1
          STA   HCOUNT+1
          inc16 HCOUNT
-         JSR   setPos
+         JSR   setHCurs
+         JSR   setVCurs
 :go      JSR   fastLn
          LDA   HCOUNT+1
          BEQ   :fin
@@ -824,17 +934,18 @@ fastLn   LDA   HCOUNT
          LDA   (ROWPTR),Y
          EOR   clrMask1,X
 :pix     EOR   (ROWPTR),Y
-         STA   (ROWPTR),Y
+         paint
          SEC
          LDA   HCOUNT
          SBC   #$07
          STA   HCOUNT
 :adv     rolClr
+         swBank
          LDA   CHKAUX
-         BMI   :same40c
+         BPL   :nxt
          INC   COLUMN
-:same40c swBank
-:chk     LDA   HCOUNT
+         wrapCol #$28
+:nxt     LDA   HCOUNT
          BEQ   :fin
          CMP   #$07
          BCC   :rmndr
@@ -855,26 +966,11 @@ fastLn   LDA   HCOUNT
 :go      JSR   plotc
          STX   BITPOS
          JSR   incHor
-         BRA   :chk
+         BRA   :nxt
 
-* Move cursor horizontally. No bounds check. X0 unchanged.
+* Move cursor horizontally with wrap-around. X0 unchanged.
 * Direction given by N.  For vertical use ROM.
-movHor   BMI   decHor
-incHor   LDA   BITPOS
-         ASL
-         CMP   #$80
-         BEQ   :new80c
-         ORA   #$80
-         STA   BITPOS
-         RTS
-:new80c  LDA   #%10000001
-         STA   BITPOS
-         rolClr
-         LDA   CHKAUX
-         BMI   :same40c
-         INC   COLUMN
-:same40c swBank
-         RTS
+movHor   BPL   incHor
 decHor   LDA   BITPOS
          LSR
          CMP   #%01000000
@@ -885,67 +981,135 @@ decHor   LDA   BITPOS
 :new80c  LDA   #%11000000
          STA   BITPOS
          rorClr
+         swBank
          LDA   CHKAUX
-         BPL   :same40c
+         BMI   :fin
          DEC   COLUMN
-:same40c swBank
+         wrapCol #$28
+:fin     RTS
+incHor   LDA   BITPOS
+         ASL
+         CMP   #$80
+         BEQ   :new80c
+         ORA   #$80
+         STA   BITPOS
          RTS
-     
-* Set DHR cursor using X0,Y0.
-* Cursor means ROWPTR, COLUMN, BITPOS, clrMask1, clrMask2.
-setPos   LDA   X0
+:new80c  LDA   #%10000001
+         STA   BITPOS
+         rolClr
+         swBank
+         LDA   CHKAUX
+         BPL   :fin
+         INC   COLUMN
+         wrapCol #$28
+:fin     RTS
+
+* Set ROWPTR using Y0.
+* Only diff from HGR is separating out.
+setVCurs LDA   Y0
          PHA
-         LDA   X0+1
-         PHA
-         LDA   CLRBAS1    ; HPOSN will corrupt
-         PHA
-         STA   AUXMEM
-         div   X0;X0+1;#$07
-         STA   X0         ; save remainder
-         LDA   fac2       ; x/7 = column 0..79
-         AND   #$07
-         PHA              ; save column%8
-         LDA   fac2
-         BIT   #$01
-         BEQ   :even
-         STA   MAINMEM
-* Use HPOSN to set compatible cursor elements
-:even    LSR   fac2       ; column 0..39
-         LDA   fac2
-         JSR   mul7
-         CLC
-         LDA   prod
-         ADC   X0
-         TAX
-         LDA   prod+1
-         ADC   #$00
-         TAY
-         LDA   Y0
-         JSR   HPOSN      ; sets ROWPTR, BITPOS, COLUMN
-* Setup the DHR color mask.
-         PLA              ; column%8
-         TAY
+         AND   #%11000000
+         STA   ROWPTR
+         LSR
+         LSR
+         ORA   ROWPTR
+         STA   ROWPTR
          PLA
-         STA   CLRBAS1
+         STA   ROWPTR+1
+         ASL
+         ASL
+         ASL
+         ROL   ROWPTR+1
+         ASL
+         ROL   ROWPTR+1
+         ASL
+         ROR   ROWPTR
+         LDA   ROWPTR+1
+         AND   #%00011111
+         ORA   PAGE
+         STA   ROWPTR+1
+         RTS
+
+* Use X0 to get COLUMN, BITPOS, clrMask1, clrMask2,
+* Pretty wrapping works for -1024<=X0<1024.
+* Wrapping constrains cursor to screen buffer for any X0.
+* Optimization is to split into 64-pix bins.
+setHCurs phX0
+         DO    _wrap
+         LDA   X0+1
+         BPL   :pos
+         EOR   #$FF
+         STA   X0+1
+         LDA   X0
+         EOR   #$FF
+         STA   X0         ; X0=-X0-1
+         FIN
+:pos     LDA   X0
+         LSR   X0+1
+         ROR
+         LSR   X0+1
+         ROR
+         LSR
+         LSR
+         LSR
+         LSR
+         AND   #$0F
+         TAX              ; x=bin
+         LDY   colTbl,X   ; y=80col
+         LDA   X0
+         AND   #$3F
+         CLC
+         ADC   bitTbl,X   ; A=bit
+         SEC
+:sb7     INY
+         SBC   #$07
+         BCS   :sb7
+         TAX
+         plX0
+         DO    _wrap
+         BPL   :pos2
+         TXA
+         EOR   #$FF
+         TAX
+         LDA   BITTAB,X
+         BRA   :clr
+         FIN
+:pos2    LDA   BITTAB-$F9,X
+:clr     STA   BITPOS
+         LDA   CLRBAS1
          STA   clrMask1
          LDA   CLRBAS2
          STA   clrMask2
+         STY   COLUMN
+         wrapCol #$50
+         DO    _wrap
+         LDA   X0+1
+         BPL   :pos3
+         SEC
+         LDA   #$4F
+         SBC   COLUMN
+         STA   COLUMN
+         FIN
+:pos3    LDA   COLUMN
+         AND   #$07
+         TAY
          CPY   #$00
-:loop    BEQ   :cleanup
+:loop    BEQ   :pg
          rolClr
          DEY
          BRA   :loop
-:cleanup PLA
-         STA   X0+1
-         PLA
-         STA   X0
-         RTS
+:pg      STZ   AUXMEM
+         LSR   COLUMN
+         BCC   :fin
+         STZ   MAINMEM
+:fin     RTS
 
 * Fill a trapezoid using horizontal lines
 * upper segment is X0,x1,Y0.
 * lower segment is x2,x3,y1
 trap     phXY
-         JSR   setPos
+         JSR   setHCurs
+         JSR   setVCurs
          mkptr leftBuf;zptr
          LDA   x2
          LDX   x2+1
@@ -955,7 +1119,8 @@ trap     phXY
          PLA
          STA   Y0
          PHA
-         JSR   setPos
+         JSR   setHCurs
+         JSR   setVCurs
          mkptr rightBuf;zptr
          LDA   x3
          LDX   x3+1
@@ -1006,7 +1171,8 @@ trap     phXY
          RTS
 
 * Stroke brush X at X0,Y0
-stroke   mkptr brushes;zptr
+stroke   JSR   setVCurs
+         mkptr brushes;zptr
          TXA
          TAY
          CLC
@@ -1034,7 +1200,7 @@ stroke   mkptr brushes;zptr
          STA   X0+1
          LDA   (x1),Y
          STA   HCOUNT
-         JSR   setPos
+         JSR   setHCurs
          JSR   fastLn
          plXY
          INC   Y0
@@ -1042,15 +1208,14 @@ stroke   mkptr brushes;zptr
          LDA   y1
          CMP   DY
          BEQ   :fin
+         JSR   INCRY
          BRA   :nextLn
 :fin     RTS
          
-* Render a binary coded drawing with offset DX,DY.
+* Render a binary coded drawing with offset DX,X00.
 * Can call itself recursively.
 draw     cp16  DRAWPTR;zptr
-:go      LDA   DY         ; stash data
-         PHA
-         LDA   DX
+:go      LDA   DX
          PHA
          LDA   DX+1
          PHA
@@ -1163,7 +1328,7 @@ draw     cp16  DRAWPTR;zptr
          INY
          CLC
          LDA   (zptr),Y
-         ADC   DY
+         ADC   X00
          STA   Y0
          RTS
 :next    PLA
@@ -1174,8 +1339,6 @@ draw     cp16  DRAWPTR;zptr
          STA   DX+1
          PLA
          STA   DX
-         PLA
-         STA   DY
          LDA   (zptr)
          TAX
          CLC
@@ -1239,22 +1402,21 @@ tile     PHA
          LDA   fac1
          STA   COLUMN
 
-:loopx   LDA   (zptr)
+:loopx   PHX
          PHY
-         LDY   COLUMN
-         STZ   AUXMEM
-         STA   (ROWPTR),Y
-         PLY
-         inc16 zptr
 
+         LDY   COLUMN
          LDA   (zptr)
-         PHY
-         LDY   COLUMN
+         STZ   AUXMEM
+         paint
+         inc16 zptr
+         LDA   (zptr)
          STZ   MAINMEM
-         STA   (ROWPTR),Y
-         PLY
+         paint
          inc16 zptr
 
+         PLY
+         PLX
          DEX
          BEQ   :nxtRow
          INC   COLUMN
@@ -1282,33 +1444,16 @@ print    STA   stat
          PLX
          PLY
          INX
-         INC   byt
+         CPX   #$28
+         BCS   :wrap
+:nxt     INC   byt
          DEC   stat
          BNE   :loop
          RTS
-         
-* Divide a word by a byte, assuming result is a byte
-* fac2 = prod / fac1, A = prod % fac1, prod is destroyed
-divwb    STZ   fac2
-         LDA   prod+1
-         LDY   #$08
-         SEC
-         SBC   fac1
-:loop    PHP
-         ROL   fac2
-         ASL   prod
-         ROL
-         PLP
-         BCC   :clr
-         SBC   fac1
-         BRA   :set1
-:clr     ADC   fac1
-:set1    DEY
-         BNE   :loop
-         BCS   :set2
-         ADC   fac1
-         CLC
-:set2    ROL   fac2
+:wrap    LDX   #$00
+         INY
+         CPY   #$18
+         BCC   :nxt
          RTS
 
 * Multiply two bytes to get a word
@@ -1326,26 +1471,6 @@ mulbb    STZ   prod
          ROR   prod
          DEX
          BNE   :loop
-         RTS
-
-* prod = 7*A, saves A in fac1, destroys A
-mul7     STA   fac1
-         STA   prod
-         STZ   prod+1
-         CLC
-         ROL   prod
-         ROL   prod+1
-         ROL   prod
-         ROL   prod+1
-         ROL   prod
-         ROL   prod+1     ; prod = 8*A
-         SEC
-         LDA   prod
-         SBC   fac1
-         STA   prod
-         LDA   prod+1
-         SBC   #$00
-         STA   prod+1
          RTS
 
 cmosErr  JSR   BELL
@@ -1415,3 +1540,10 @@ stack    DS    $20
 
 rowTbHi  HEX   202021212222232320202121222223232020212122222323
 rowTbLo  HEX   008000800080008028a828a828a828a850d050d050d050d0
+
+* table of 64 pixel bins
+* colTbl is (64*n/7)%80-1, bitTbl is 64*n%7
+* 16 bins, 1024 pixels (padded)
+
+colTbl   HEX   ff,08,11,1a,23,2c,35,3f,48,01,0a,13,1c,25,2f,38
+bitTbl   HEX   00,01,02,03,04,05,06,00,01,02,03,04,05,06,00,01
