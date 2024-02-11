@@ -3,11 +3,15 @@
 
 * Ampersand commands for double-hi-res.
 * Also an interpreter for binary encoded drawing commands.
-* TODO: HPLOT - to +, allow big TRAPs
 
-* DHR Cursor Notes
-* consists of ROWPTR,BITPOS,COLUMN, and state of
-* TXTPAGE soft switch (MAIN/AUX memory).
+* DHR Cursor
+* ----------
+* ROWPTR - address of screen row
+* COLUMN - HGR column (0-39)
+* AUXMEM - state of MAIN/AUX soft switch
+* BITPOS - bitmap of 7-pixel cell
+* clrMask1 - even row pattern
+* clrMask2 - odd row pattern
 * We re-use some of the HGR cursor locations.
 
 * Conditional assembly
@@ -181,6 +185,28 @@ inc16    MAC
          INC   ]1+1
 incdone  <<<
 
+dec16    MAC
+         DEC   ]1
+         LDA   ]1
+         CMP   #$FF
+         BNE   cont
+         DEC   ]1+1
+cont     <<<
+
+ph16     MAC
+         LDA   ]1
+         PHA
+         LDA   ]1+1
+         PHA
+         <<<
+
+pl16     MAC
+         PLA
+         STA   ]1+1
+         PLA
+         STA   ]1
+         <<<
+
 add16    MAC
          CLC
          LDA   ]1
@@ -241,51 +267,106 @@ plX0     MAC
          STA   X0+1
          <<<
 
-lt8      MAC
-         LDA   ]1
-         CMP   ]2
-         BCC   cont
+phHorCrs MAC
+         LDA   COLUMN
+         PHA
+         LDA   BITPOS
+         PHA
+         LDA   clrMask1
+         PHA
+         LDA   clrMask2
+         PHA
+         LDA   CHKAUX
+         PHA
+         <<<
+
+plHorCrs MAC
+         PLA
+         BMI   aux
+         STZ   MAINMEM
+         BRA   cont
+aux      STZ   AUXMEM
+cont     PLA
+         STA   clrMask2
+         PLA
+         STA   clrMask1
+         PLA
+         STA   BITPOS
+         PLA
+         STA   COLUMN
+         <<<
+
+lte8     MAC
+         DO    _bound
+         LDA   ]2
+         CMP   ]1
+         BCS   cont
          JMP   illQ
+         FIN
 cont     <<<
 
-lt16     MAC
+lte16    MAC
+         DO    _bound
          LDA   ]2+1
          CMP   ]1+1
          BMI   err
          BNE   cont
-         LDA   ]1
-         CMP   ]2
-         BCC   cont
+         LDA   ]2
+         CMP   ]1
+         BCS   cont
 err      JMP   illQ
+         FIN
 cont     <<<
 
 * paint screen, protecting memory if safe=1
 paint    MAC
          DO    _safe
-         LDX   ROWPTR+1
-         CPX   #$20
+         PHA
+         PHP
+         LDA   ROWPTR+1
+         CMP   #$20
          BCC   bad
-         CPX   #$40
+         CMP   #$40
          BCS   bad
          CPY   #$28
-         BCS   bad
+         BCC   ok
+bad      PLP
+         PLA
+         BRA   cont
+ok       PLP
+         PLA
+         FIN
          STA   (ROWPTR),Y
-bad      FIN
-         DO    _safe-1
-         STA   (ROWPTR),Y
+cont     <<<
+
+wrap80   MAC              ; + only
+         DO    _wrap
+         LDA   COLUMN
+tst      CMP   #$50
+         BCC   cont
+         SBC   #$50
+         BRA   tst
+cont     STA   COLUMN         
          FIN
          <<<
 
-wrapCol  MAC
+wrapL    MAC
          DO    _wrap
          LDA   COLUMN
-tst      CMP   ]1
-         BCC   cont
-         SBC   ]1
-         BRA   tst
-cont     STA   COLUMN
+         BPL   cont
+         LDA   #$27
+         STA   COLUMN
          FIN
-         <<<
+cont     <<<
+
+wrapR    MAC
+         DO    _wrap
+         LDA   COLUMN
+         CMP   #$28
+         BCC   cont
+         STZ   COLUMN
+         FIN
+cont     <<<
 
 * Main Ampersand dispatcher
 * KEEP THIS AS THE FIRST ADDRESSABLE ITEM
@@ -517,9 +598,9 @@ dispatch LDA   #$80
          STX   y1
          cp16  X00;x3
 
-         lt8   Y0;y1
-         lt16  X0;x1
-         lt16  x2;x3
+         lte8  Y0;y1
+         lte16 X0;x1
+         lte16 x2;x3
 
 :ok      JSR   trap
          JMP   :close
@@ -566,10 +647,7 @@ dispatch LDA   #$80
          BEQ   :none
          JSR   FRMEVL
          JSR   GETSTR
-         LDA   INDEX
-         PHA
-         LDA   INDEX+1
-         PHA
+         ph16  INDEX
          STY   stat
          JSR   chkAt
          JSR   GETNUM
@@ -580,10 +658,7 @@ dispatch LDA   #$80
          TAX
          DEX
          DEY
-         PLA
-         STA   INDEX+1
-         PLA
-         STA   INDEX
+         pl16  INDEX
          LDA   stat
          JSR   print
          JMP   :close
@@ -597,10 +672,7 @@ dispatch LDA   #$80
 
 * Check for command, str at (zptr) must terminate in null
 * If no match TXTPTR is rewound
-tryCmd   LDA   TXTPTR
-         PHA
-         LDA   TXTPTR+1
-         PHA
+tryCmd   ph16  TXTPTR
          LDY   #$00
          JSR   CHRGOT
 :loop    BMI   :chk
@@ -609,10 +681,7 @@ tryCmd   LDA   TXTPTR
          AND   #%11011111 ; to upper (must be letter)
 :chk     CMP   (zptr),Y
          BEQ   :match
-         PLA
-         STA   TXTPTR+1
-         PLA
-         STA   TXTPTR
+         pl16  TXTPTR
          LDA   #$00
          RTS
 :match   INY
@@ -737,9 +806,7 @@ bndBrsh  CPX   #maxBrsh+1
 * (really plots all pixels in BITPOS)
 plot     JSR   setHCurs   ; plot at X0,Y0 (slow)
          JSR   setVCurs
-plotc    PHP              ; plot at cursor (faster)
-         PHX
-         PHY
+plotc    PHY              ; plot at cursor (faster)
          LDY   COLUMN
          LDA   MODE
          BPL   :dither
@@ -747,11 +814,12 @@ plotc    PHP              ; plot at cursor (faster)
          BRA   :pix
 :dither  LDA   ROWPTR+1
          AND   #%100
-         LSR
-         LSR
-         TAX              ; X selects color by row
+         BNE   :clr2
          LDA   (ROWPTR),Y
-         EOR   clrMask1,X ; 0 ^ 1=wanted -> 1=flip
+         EOR   clrMask1
+         BRA   :pix
+:clr2    LDA   (ROWPTR),Y
+         EOR   clrMask2   ; 0 ^ 1=wanted -> 1=flip
                           ; 0 ^ 0=unwanted -> 0=leave
                           ; 1 ^ 1=wanted -> 0=leave
                           ; 1 ^ 0=unwanted -> 1=flip
@@ -759,11 +827,10 @@ plotc    PHP              ; plot at cursor (faster)
          EOR   (ROWPTR),Y
          paint
          PLY
-         PLX
-         PLP
          RTS
 
 * Prepare line from cursor to A+X*256,Y.
+* X0, Y0 are used to work out deltas.
 * Sets X, Y, X0, Y0, DX, DY, HGRQUAD, HGRE, HCOUNT.
 iniLine  PHA              ; x1 low
          SEC              ; prepare dx
@@ -772,7 +839,7 @@ iniLine  PHA              ; x1 low
          TXA              ; x1 high
          SBC   X0+1
          STA   HGRQUAD    ; dx high
-         BCS   :dxpos
+         BPL   :dxpos
          PLA              ; dx low
          EOR   #$FF
          ADC   #$01
@@ -823,71 +890,137 @@ line     PHA
 * Cursor,X0,Y0 are updated.
 * adapted from similar HGR routine
 lineTo   JSR   iniLine
-         BRA   :movx2
-:movx1l1 ASL              ; iterate main loop
-         JSR   movHor
-         SEC
-:movx2   LDA   HGRE       ; init main loop
+:ini     SEC
+         LDA   HGRE
          ADC   DY
          STA   HGRE
          LDA   HGRE+1
          SBC   #$00
-:movx3l2 STA   HGRE+1
-         JSR   plotc
+         STA   HGRE+1
+:plt     JSR   plotc
          INX
-         BNE   :movx4
+         BNE   :mov
          INC   HCOUNT
          BEQ   :fin
-:movx4   LDA   HGRQUAD
-         BCS   :movx1l1
-         JSR   MOVUPDWN
-         CLC
-         LDA   HGRE
-         ADC   DX
-         STA   HGRE
-         LDA   HGRE+1     
-         ADC   DX+1
-         BRA   :movx3l2
+:mov     LDA   HGRQUAD
+         BCC   :ud
+         ASL
+         JSR   movHor
+         BRA   :ini
+:ud      JSR   MOVUPDWN
+         add16 DX;HGRE
+         BRA   :plt
 :fin     RTS
 
-* Calculate x-offsets for trapezoid.
-* Same as lineTo, but save data instead of drawing.
-* Destroys stat and byt, data goes to (zptr)
-calcOff  JSR   iniLine
-         STZ   byt
-         STZ   stat
-         BRA   :movx2
-:movx1l1 ASL              ; iterate main loop
-         BMI   :dec
-         INC   byt
-         BRA   :cont
-:dec     DEC   byt
-:cont    SEC
-:movx2   LDA   HGRE       ; init main loop
+* Start incremental line advance for trapezoid bounds.
+iniTrap  phXY
+* gather left boundary params
+         LDA   x2
+         LDX   x2+1
+         LDY   y1
+         JSR   iniLine
+         cp16  HGRE;hgre1
+         cp16  DX;dx1
+         STX   count1
+         LDA   HCOUNT
+         STA   count1+1
+         LDA   HGRQUAD
+         ASL
+         STA   quad1
+* gather right boundary params
+         plXY
+         phXY
+         cp16  x1;X0
+         LDA   x3
+         LDX   x3+1
+         LDY   y1
+         JSR   iniLine
+         cp16  HGRE;hgre2
+         cp16  DX;dx2
+         STX   count2
+         LDA   HCOUNT
+         STA   count2+1
+         LDA   HGRQUAD
+         ASL
+         STA   quad2
+
+         plXY
+         JSR   setHCurs
+         JSR   setVCurs
+         SEC
+         LDA   x1
+         SBC   X0
+         STA   HCOUNT
+         LDA   x1+1
+         SBC   X0+1
+         STA   HCOUNT+1
+         inc16 HCOUNT
+         RTS
+
+* start trapezoid left boundary
+iniTrap1 SEC
+         LDA   hgre1
          ADC   DY
-         STA   HGRE
-         LDA   HGRE+1
+         STA   hgre1
+         LDA   hgre1+1
          SBC   #$00
-:movx3l2 STA   HGRE+1
-         INX
-         BNE   :movx4
-         INC   HCOUNT
+         STA   hgre1+1
+* continue trapezoid left boundary
+trapMov1 INC   count1
+         BNE   :mov
+         INC   count1+1
          BEQ   :fin
-:movx4   LDA   HGRQUAD
-         BCS   :movx1l1
-         PHY
-         LDY   stat
-         LDA   byt
-         STA   (zptr),Y
-         INC   stat
-         PLY
-         CLC
-         LDA   HGRE
-         ADC   DX
-         STA   HGRE
-         LDA   HGRE+1     
-         ADC   DX+1
-         BRA   :movx3l2
+:mov     BCC   :fin
+         LDA   quad1
+         JSR   movHor
+         LDA   quad1
+         BMI   :lft
+         dec16 HCOUNT
+         BRA   iniTrap1
+:lft     inc16 HCOUNT
+         BRA   iniTrap1
+:fin     RTS
+
+* start trapezoid right boundary
+iniTrap2 SEC
+         LDA   hgre2
+         ADC   DY
+         STA   hgre2
+         LDA   hgre2+1
+         SBC   #$00
+         STA   hgre2+1
+* continue trapezoid right boundary
+trapMov2 INC   count2
+         BNE   :mov
+         INC   count2+1
+         BEQ   :fin
+:mov     BCC   :fin
+         LDA   quad2
+         BMI   :lft
+         inc16 HCOUNT
+         BRA   iniTrap2
+:lft     dec16 HCOUNT
+         BRA   iniTrap2
+:fin     RTS
+
+* Fill a trapezoid using horizontal lines
+* upper segment is X0,x1,Y0.
+* lower segment is x2,x3,y1
+trap     JSR   iniTrap
+         JSR   hlinet
+         JSR   iniTrap1
+         JSR   iniTrap2
+:loop    LDA   count1
+         BNE   :nxt
+         LDA   count1+1
+         BEQ   :fin
+:nxt     JSR   INCRY
+         JSR   hlinet
+         add16 dx1;hgre1
+         JSR   trapMov1
+         add16 dx2;hgre2
+         JSR   trapMov2
+         BRA   :loop
 :fin     RTS
 
 * draw horizontal line from X0,Y0 to A+X*256,Y0.
@@ -902,13 +1035,21 @@ hline    SEC
          inc16 HCOUNT
          JSR   setHCurs
          JSR   setVCurs
-:go      JSR   fastLn
+* hline assuming cursor and HCOUNT already setup
+hlinec   JSR   fastLn
          LDA   HCOUNT+1
          BEQ   :fin
          DEC   HCOUNT
          DEC   HCOUNT+1
-         BRA   :go
+         BRA   hlinec
 :fin     RTS
+* hlinec wrapped in code to restore HCOUNT and horizontal cursor
+hlinet   ph16  HCOUNT
+         phHorCrs
+         JSR   hlinec
+         plHorCrs
+         pl16  HCOUNT
+         RTS
 
 * Draw horizontal line assuming cursor is set, we are moving
 * right, and number of pixels to set is in low byte of HCOUNT.
@@ -944,7 +1085,7 @@ fastLn   LDA   HCOUNT
          LDA   CHKAUX
          BPL   :nxt
          INC   COLUMN
-         wrapCol #$28
+         wrapR
 :nxt     LDA   HCOUNT
          BEQ   :fin
          CMP   #$07
@@ -985,7 +1126,7 @@ decHor   LDA   BITPOS
          LDA   CHKAUX
          BMI   :fin
          DEC   COLUMN
-         wrapCol #$28
+         wrapL
 :fin     RTS
 incHor   LDA   BITPOS
          ASL
@@ -1001,13 +1142,19 @@ incHor   LDA   BITPOS
          LDA   CHKAUX
          BPL   :fin
          INC   COLUMN
-         wrapCol #$28
+         wrapR
 :fin     RTS
 
 * Set ROWPTR using Y0.
 * Only diff from HGR is separating out.
 setVCurs LDA   Y0
-         PHA
+         DO    _wrap
+         CMP   #$C0
+         BCC   :ok
+         SEC
+         SBC   #$C0
+         FIN
+:ok      PHA
          AND   #%11000000
          STA   ROWPTR
          LSR
@@ -1081,7 +1228,7 @@ setHCurs phX0
          LDA   CLRBAS2
          STA   clrMask2
          STY   COLUMN
-         wrapCol #$50
+         wrap80
          DO    _wrap
          LDA   X0+1
          BPL   :pos3
@@ -1103,72 +1250,6 @@ setHCurs phX0
          BCC   :fin
          STZ   MAINMEM
 :fin     RTS
-
-* Fill a trapezoid using horizontal lines
-* upper segment is X0,x1,Y0.
-* lower segment is x2,x3,y1
-trap     phXY
-         JSR   setHCurs
-         JSR   setVCurs
-         mkptr leftBuf;zptr
-         LDA   x2
-         LDX   x2+1
-         LDY   y1
-         JSR   calcOff
-         cp16  x1;X0
-         PLA
-         STA   Y0
-         PHA
-         JSR   setHCurs
-         JSR   setVCurs
-         mkptr rightBuf;zptr
-         LDA   x3
-         LDX   x3+1
-         LDY   y1
-         JSR   calcOff
-         plXY
-
-* use x2,x3 to save starting X0,x1
-         cp16  X0;x2
-         cp16  x1;x3
-
-         LDY   #$00
-:loop    PHY
-         LDA   x1
-         LDX   x1+1
-         LDY   Y0
-         JSR   hline
-         PLY
-         STZ   fac1
-         LDA   leftBuf,Y
-         BPL   :adjLeft
-         LDA   #$FF
-         STA   fac1
-:adjLeft CLC
-         LDA   x2
-         ADC   leftBuf,Y
-         STA   X0
-         LDA   x2+1
-         ADC   fac1
-         STA   X0+1
-         STZ   fac1
-         LDA   rightBuf,Y
-         BPL   :adjRght
-         LDA   #$FF
-         STA   fac1
-:adjRght CLC
-         LDA   x3
-         ADC   rightBuf,Y
-         STA   x1
-         LDA   x3+1
-         ADC   fac1
-         STA   x1+1
-         INC   Y0
-         INY
-         LDA   y1
-         CMP   Y0
-         BCS   :loop
-         RTS
 
 * Stroke brush X at X0,Y0
 stroke   JSR   setVCurs
@@ -1215,14 +1296,8 @@ stroke   JSR   setVCurs
 * Render a binary coded drawing with offset DX,X00.
 * Can call itself recursively.
 draw     cp16  DRAWPTR;zptr
-:go      LDA   DX
-         PHA
-         LDA   DX+1
-         PHA
-         LDA   zptr
-         PHA
-         LDA   zptr+1
-         PHA
+:go      ph16  DX
+         ph16  zptr
          LDY   #$00
          LDA   (zptr),Y
          BNE   :mode
@@ -1265,12 +1340,7 @@ draw     cp16  DRAWPTR;zptr
 :line    CMP   #$05
          BNE   :trap
          JSR   :getxy     ; code,x21,x2h,y2,x1l,x1h,y1
-         LDA   X0
-         PHA
-         LDA   X0+1
-         PHA
-         LDA   Y0
-         PHA
+         phXY
          JSR   :getxy
          PLY
          PLX
@@ -1331,14 +1401,8 @@ draw     cp16  DRAWPTR;zptr
          ADC   X00
          STA   Y0
          RTS
-:next    PLA
-         STA   zptr+1
-         PLA
-         STA   zptr
-         PLA              ; restore offset
-         STA   DX+1
-         PLA
-         STA   DX
+:next    pl16  zptr
+         pl16  DX
          LDA   (zptr)
          TAX
          CLC
@@ -1502,7 +1566,7 @@ ampPl    ASC   'PUL',00
 noCMOS   ASC   "DHRLIB REQUIRES 65C02",00
 
 * Offset to the next draw code.
-* (color,mode,draw,plot,hline,line,fill,stroke)
+* (color,mode,draw,plot,hline,line,trap,stroke)
 cmdLen   HEX   03,02,03,04,06,07,0B,05
 
 brushTbl
@@ -1530,20 +1594,25 @@ brushes
          HEX   0e0a070503020100000000000001020305070a0e
          HEX   141c22262a2c2e3030303030302e2c2a26221c14
 
-* buffers for trapezoid fills and undo stack
-         
-leftBuf  DS    $C0
-rightBuf DS    $C0
+* undo stack
 stack    DS    $20
 
-* table of tile row addresses
+* trapezoid advance
+hgre1    DDB   0000
+hgre2    DDB   0000
+count1   DDB   0000
+count2   DDB   0000
+quad1    DFB   00
+quad2    DFB   00
+dx1      DDB   0000
+dx2      DDB   0000
 
+* table of tile row addresses
 rowTbHi  HEX   202021212222232320202121222223232020212122222323
 rowTbLo  HEX   008000800080008028a828a828a828a850d050d050d050d0
 
 * table of 64 pixel bins
 * colTbl is (64*n/7)%80-1, bitTbl is 64*n%7
 * 16 bins, 1024 pixels (padded)
-
 colTbl   HEX   ff,08,11,1a,23,2c,35,3f,48,01,0a,13,1c,25,2f,38
 bitTbl   HEX   00,01,02,03,04,05,06,00,01,02,03,04,05,06,00,01
