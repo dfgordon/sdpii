@@ -12,6 +12,16 @@ import pathlib
 # 6 = trap [code,x0l,x0h,y0,x1l,x1h,x2l,x2h,y1,x3l,x3h] (11)
 # 7 = stroke [code,xl,xh,y,brush] (5)
 
+# new picture codes
+# 0 = color [code,mask1,mask2] (3)
+# 1 = mode [code,flags] (2)
+# 2 = draw [code,aux1,aux2] (3)
+# 3 = plot [{0-3=code,4-5=xh},xl,y] (3)
+# 4 = hline [{0-3=code,4-5=x1h,6-7=x2h},x1l,x2l,y] (4)
+# 5 = line [{0-3=code,4-5=x2h,6-7=x1h},x2l,x1l,y2,y1] (5, note reversed)
+# 6 = trap [{0-3=code,4-5=x0h,6-7=x1h},x0l,x1l,{4-5=x2h,6-7=x3h},x2l,x3l,y0,y1] (8)
+# 7 = stroke [{0-3=code,4-5=xh},xl,y,brush] (4)
+
 cmdLen = [3,2,3,4,6,7,11,5]
 
 if len(sys.argv)!=2:

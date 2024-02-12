@@ -1300,6 +1300,7 @@ draw     cp16  DRAWPTR;zptr
          ph16  zptr
          LDY   #$00
          LDA   (zptr),Y
+         AND   #$0F
          BNE   :mode
 :color   INY              ; code,mask1,mask2
          LDA   (zptr),Y
