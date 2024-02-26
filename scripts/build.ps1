@@ -5,6 +5,7 @@
 #Requires -Version 7.4
 
 Set-Variable floppy "./build/sdpii.woz"
+Set-Variable asmfiles @("dhrlib","encode","decode","bitstream","equiv","macros")
 Set-Variable basicFiles @("startup","paint","tile","repaint")
 
 if (!(Test-Path ../build)) {
@@ -23,7 +24,13 @@ foreach ($f in $basicFiles) {
        a2kit put -d $floppy -f $f -t atok
 }
 
-Merlin32 ./src ./src/dhrlib.S
+# foreach ($f in $asmFiles) {
+#     a2kit get -f ("./src/" + $f + ".S") |
+#      a2kit tokenize -t mtxt |
+#       a2kit put -d $floppy -f ($f + ".S") -t mtok
+# }
+
+Merlin32 ./src ./src/link32.S
 a2kit get -f ./src/dhrlib | a2kit put -d $floppy -f dhrlib -t bin -a 16384
 a2kit get -f ./fimg/font1.json | a2kit put -d $floppy -f font1 -t any
 Move-Item ./src/dhrlib ./build/dhrlib

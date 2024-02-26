@@ -4,7 +4,8 @@ Apple II double high resolution (DHR) graphics:
 
 * Assembly language library
 * Ampersand interface for Applesoft
-* Applesoft painting program
+* Encode/decode drawing sequences
+* Applesoft drawing program
 * Applesoft tile builder program
 
 ## Status

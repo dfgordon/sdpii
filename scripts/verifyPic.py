@@ -1,28 +1,27 @@
 import sys
 import json
 import pathlib
+import decode
 
-# picture codes
-# 0 = color [code,mask1,mask2] (3)
-# 1 = mode [code,flags] (2)
-# 2 = draw [code,aux1,aux2] (3)
-# 3 = plot [code,xl,xh,y] (4)
-# 4 = hline [code,x1l,x1h,y,x2l,x2h] (6)
-# 5 = line [code,x2l,x2h,y2,x1l,x1h,y1] (7, note reversed)
-# 6 = trap [code,x0l,x0h,y0,x1l,x1h,x2l,x2h,y1,x3l,x3h] (11)
-# 7 = stroke [code,xl,xh,y,brush] (5)
+# 0 = color [code(4),mask1(8),mask2(8)] (20)
+# 1 = mode [code(4),flags(8)] (12)
+# 2 = setCurs [code(4),x(10),y(8)] (22)
+# 3 = plot [code(4),x(10),y(8)] (22)
+# 4 = lineTo [code(4),x(10),y(8)] (22)
+# 5 = hline [code(4),x1(10),x2(10),y(8)] (32)
+# 6 = trap [code,x0,x1,x2,x3,y0,y1] (60)
+# 7 = stroke [code(4),x(10),y(8),brush(4)] (26)
 
-# new picture codes
-# 0 = color [code,mask1,mask2] (3)
-# 1 = mode [code,flags] (2)
-# 2 = draw [code,aux1,aux2] (3)
-# 3 = plot [{0-3=code,4-5=xh},xl,y] (3)
-# 4 = hline [{0-3=code,4-5=x1h,6-7=x2h},x1l,x2l,y] (4)
-# 5 = line [{0-3=code,4-5=x2h,6-7=x1h},x2l,x1l,y2,y1] (5, note reversed)
-# 6 = trap [{0-3=code,4-5=x0h,6-7=x1h},x0l,x1l,{4-5=x2h,6-7=x3h},x2l,x3l,y0,y1] (8)
-# 7 = stroke [{0-3=code,4-5=xh},xl,y,brush] (4)
+cmdCount = 0
+histogram = [0]*9
 
-cmdLen = [3,2,3,4,6,7,11,5]
+def boundx(x):
+    if x<0 or x>559:
+        print('cmd',cmdCount,"x",x,"out of bounds")
+
+def boundy(y):
+    if y<0 or y>191:
+        print('cmd',cmdCount,"y",y,"out of bounds")
 
 if len(sys.argv)!=2:
     print("provide the path to a file image")
@@ -42,29 +41,47 @@ for chunk in range(len(fimg['chunks'])):
     bytes.extend(dat)
 bytes = bytes[0:eof]
 
-ptr = 0
-cmdCount = 0
-while ptr<len(bytes):
-    if bytes[ptr]==6:
-        x0 = bytes[ptr+1] + bytes[ptr+2]*256
-        y0 = bytes[ptr+3]
-        x1 = bytes[ptr+4] + bytes[ptr+5]*256
-        x2 = bytes[ptr+6] + bytes[ptr+7]*256
-        y1 = bytes[ptr+8]
-        x3 = bytes[ptr+9] + bytes[ptr+10]*256
-        if x0>=x1 or x2>=x3 or y0>=y1:
-            print("bad trap",cmdCount,"params",x0,x1,y0,x2,x3,y1)
-    if bytes[ptr]>7:
-        if bytes[ptr]==255 and ptr==len(bytes)-1:
-            print("found terminator")
-            break
-        else:
-            print("cmd",cmdCount,"bad code",bytes[ptr])
-        exit(1)
-    ptr += cmdLen[bytes[ptr]]
+d = decode.Decoder(bytes)
+cmd = d.next()
+while cmd[1]!=[0]:
+    histogram[cmd[1][0]] += 1
+    if cmd[0]=='mode':
+        m = cmd[1][1]
+        if m!=0 and m!=128:
+            print('cmd',cmdCount,'unexpected mode',m)
+    if cmd[0]=='curs' or cmd[0]=='plot' or cmd[0]=='lineto':
+        [x0,y0] = cmd[1][1:3]
+        boundx(x0)
+        boundy(y0)
+    if cmd[0]=='hline':
+        [x0,x1,y0] = cmd[1][1:7]
+        boundx(x0)
+        boundx(x1)
+        boundy(y0)
+        if x0>x1:
+            print('cmd',cmdCount,'x0>x1')
+    if cmd[0]=='trap':
+        [x0,x1,x2,x3,y0,y1] = cmd[1][1:7]
+        boundx(x0)
+        boundx(x1)
+        boundx(x2)
+        boundx(x3)
+        boundy(y0)
+        boundy(y1)
+        if x0>x1:
+            print('cmd',cmdCount,'x0>x1')
+        if x2>x3:
+            print('cmd',cmdCount,'x2>x3')
+        if y0>y1:
+            print('cmd',cmdCount,'y0>y1')
+    if cmd[0]=='stroke':
+        [x0,y0,brush] = cmd[1][1:4]
+        boundx(x0)
+        boundy(y0)
+        if brush<0 or brush>6:
+            print('cmd',cmdCount,'unexpected brush',brush)
+    cmd = d.next()
     cmdCount += 1
 
-if ptr!=len(bytes)-1:
-    print("prematurely terminated")
-
-print("found",cmdCount,"cmds")
+print(cmdCount,'commands')
+print('histogram',histogram)

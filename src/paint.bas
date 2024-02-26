@@ -1,3 +1,4 @@
+0 print chr$(7);"This needs to catch up with DHRLIB, sorry!": stop
 1 lomem: 8*4096: if peek(-1088)=234 then text: home: print chr$(7);"65C02 REQUIRED": end
 2  print chr$(4);"bload dhrlib": print  chr$ (4);"pr#3"
 3  poke 1013,76: poke 1014,0: poke 1015,64
