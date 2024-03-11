@@ -3,6 +3,7 @@
  DSK dhrlib
  ORG $004000
  ASM dhrlib.S
+ ASM draw.S
  ASM core.S
  ASM encode.S
  ASM decode.S

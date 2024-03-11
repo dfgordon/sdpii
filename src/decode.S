@@ -9,36 +9,57 @@
          PUT   equiv
          USE   macros
 
+* imports from BITSTREAM
+
 rdBits   EXT
 resmBits EXT
-suspBits EXT
+chkpBits EXT
 seek     EXT
 
-closDc   inc16 cmdCount
+* main interface, decode next command.
+* update cmdIdx and checkpoint stream record.
+* command code is left in MODE bits 0,1,2.
+* command parameters are left in ZP.
+doDecode ENT
+         JSR   resmg
+         LDA   MODE
+         AND   #%11111000
+         STA   MODE
+         LDX   #3
+         JSR   rdBits
+         ORA   MODE
+         STA   MODE
+         AND   #%00000111
+         ASL
+         TAX
+         JMP   (dcTable,X)
+* update count and checkpoint
+closDc   inc16 cmdIdx
+         JSR   chkpg
          RTS
 
 resmg    ENT
          mkptr decoder;zptr
          JMP   resmBits
 
-suspg    ENT
+chkpg    ENT
          mkptr decoder;zptr
-         JMP   suspBits
+         JMP   chkpBits
 
 * seek by X00 commands.
 * if stream=0 seek from current position.
 * sets zptr to the decoder descriptor.
 seekg    ENT
          mkptr decoder;zptr
-         cp16  cmdCount;prod
+         cp16  cmdIdx;prod
          JSR   seek
-         cp16  prod;cmdCount
+         cp16  prod;cmdIdx
          RTS
 
-* return command count in Y + 256*A
+* return command index in Y + 256*A
 tellg    ENT
-         LDY   cmdCount
-         LDA   cmdCount+1
+         LDY   cmdIdx
+         LDA   cmdIdx+1
          RTS
 
 * unpack 10-bit coord -> A + 256*X.
@@ -90,85 +111,57 @@ getY     LDX   #8
          ADC   X00
          RTS
 
-* decode command code
-dcCmd    ENT
-         LDX   #4
-         JSR   rdBits
-         RTS
+* decode end
+dcEnd    RTS              ; no close
 
 * decode color
-dcColor  ENT
-         LDX   #8
+dcColor  LDX   #8
          JSR   rdBits
          STA   CLRBAS1
          LDX   #8
          JSR   rdBits
          STA   CLRBAS2
-         JSR   closDc
-         RTS
+         JMP   closDc
 
-* decode mode
-dcMode   ENT
-         LDX   #8
+* decode XOR bit into mode
+dcMode   ASL   MODE
+         LDX   #1
          JSR   rdBits
-         STA   MODE
-         JSR   closDc
-         RTS
+         ROR
+         ROR   MODE
+         JMP   closDc
 
 * decode plot (or curs) to X0,Y0
-dcPlot   ENT
-         JSR   getX0
+dcPlot   JSR   getX0
          JSR   getY
          STA   Y0
-         JSR   closDc
-         RTS
+         JMP   closDc
 
-* decode lineTo to A + 256*X,Y
-dcLineTo ENT
-         JSR   getAX
-         PHA
-         PHX
+* decode lineTo to x1,y1
+dcLineTo JSR   getAX
+         STA   x1
+         STX   x1+1
          JSR   getY
-         PHA
-         JSR   closDc
-         PLY
-         PLX
-         PLA
-         RTS
-
-* decode hline to X0,A,X,Y0
-dcHline  ENT
-         JSR   getX0x1
-         PHA
-         PHX
-         JSR   getY
-         STA   Y0
-         JSR   closDc
-         PLX
-         PLA
-         RTS
+         STA   y1
+         JMP   closDc
 
 * decode trapezoid to X0,x1,x2,x3,Y0,y1
-dcTrap   ENT
-         JSR   getX0x1
+dcTrap   JSR   getX0x1
          JSR   getx2x3
          JSR   getY
          STA   Y0
          JSR   getY
          STA   y1
-         JSR   closDc
-         RTS
+         JMP   closDc
 
-* decode stroke to X0,Y0,X
-dcStroke ENT
-         JSR   getX0
+* decode stroke to X0,Y0,y1
+dcStroke JSR   getX0
          JSR   getY
          STA   Y0
-         LDX   #4
+         LDX   #3
          JSR   rdBits
-         TAX
-         JSR   closDc
-         RTS
+         STA   y1
+         JMP   closDc
 
 illQ     LDX   #ILLQTY
          JMP   DOERR
@@ -177,4 +170,6 @@ illQ     LDX   #ILLQTY
 * bytePtr(2),lookahead,lookbehind,bitPtr
 decoder  ENT
          DS    5
-cmdCount HEX   00,00
+cmdIdx   HEX   00,00
+
+dcTable  DA    dcEnd,dcColor,dcMode,dcPlot,dcPlot,dcLineTo,dcTrap,dcStroke

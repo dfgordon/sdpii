@@ -28,7 +28,7 @@ class Decoder:
         x += self.rdBits(2)*256
         return x
     def next(self):
-        cmd = self.rdBits(4)
+        cmd = self.rdBits(3)
         if cmd==1:
             return self.dcColor()
         elif cmd==2:
@@ -40,10 +40,8 @@ class Decoder:
         elif cmd==5:
             return self.dcLineTo()
         elif cmd==6:
-            return self.dcHline()
-        elif cmd==7:
             return self.dcTrap()
-        elif cmd==8:
+        elif cmd==7:
             return self.dcStroke()
         elif cmd==0:
             return "end",[0]
@@ -54,7 +52,7 @@ class Decoder:
         c2 = self.rdBits(8)
         return "color",[1,c1,c2]
     def dcMode(self):
-        m = self.rdBits(8)
+        m = self.rdBits(1)
         return "mode",[2,m]
     def dcCurs(self):
         x = self.getX()
@@ -68,11 +66,6 @@ class Decoder:
         x = self.getX()
         y = self.rdBits(8)
         return "lineto",[5,x,y]
-    def dcHline(self):
-        x0 = self.getX()
-        x1 = self.getX()
-        y = self.rdBits(8)
-        return "hline",[6,x0,x1,y]
     def dcTrap(self):
         x0 = self.getX()
         x1 = self.getX()
@@ -80,10 +73,10 @@ class Decoder:
         x3 = self.getX()
         y0 = self.rdBits(8)
         y1 = self.rdBits(8)
-        return "trap",[7,x0,x1,x2,x3,y0,y1]
+        return "trap",[6,x0,x1,x2,x3,y0,y1]
     def dcStroke(self):
         x = self.getX()
         y = self.rdBits(8)
-        brush = self.rdBits(4)
-        return "stroke",[8,x,y,brush]
+        brush = self.rdBits(3)
+        return "stroke",[7,x,y,brush]
     

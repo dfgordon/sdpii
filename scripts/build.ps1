@@ -39,4 +39,7 @@ Remove-Item ./src/_FileInformation.txt -Force
 # update the project's DHRLIB file image
 a2kit get -d $floppy -f dhrlib -t any > ./fimg/dhrlib.json
 
-a2kit catalog -d $floppy
+# If disk image notebook available, leave out the catalog,
+# so the merlin output is more readily viewable.
+
+#a2kit catalog -d $floppy

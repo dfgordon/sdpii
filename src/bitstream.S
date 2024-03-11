@@ -12,13 +12,13 @@
 cmdBits  EXT
 
 * Initialize a bitstream at `stream`.
-* old bitstream is lost, unless `suspBits` called first.
+* Checkpoint should usually follow soon.
 iniBits  ENT
          LDA   (stream)
          STA   lkAhed
          STZ   lkBack
-         LDY   #$08
-         STY   bitPtr
+         LDA   #$08
+         STA   bitPtr
          RTS
 
 * resume a bitstream, restoring from descriptor at zptr
@@ -29,10 +29,16 @@ resmBits ENT
          INY
          CPY   #$05
          BNE   :loop
-         RTS
+* following permits seekg(A,0) to precede loading picture
+         LDA   bitPtr
+         CMP   #$08
+         BNE   :fin
+         LDA   (stream)
+         STA   lkAhed
+:fin     RTS
 
-* suspend a bitstream, saving to descriptor at zptr
-suspBits ENT
+* checkpoint a bitstream, saving to descriptor at zptr
+chkpBits ENT
          LDY   #$00
 :loop    LDA   stream,Y
          STA   (zptr),Y
@@ -58,16 +64,13 @@ seek     ENT
          BNE   :nxt
          LDA   X00+1
          BNE   :nxt
-         JMP   suspBits   ; exit, done
-:nxt     LDX   #4
+         JMP   chkpBits   ; exit, done
+:nxt     LDX   #3
          JSR   rdBits
          CMP   #$00
-         BNE   :ok1
-         JMP   suspBits   ; exit, no more cmds
-:ok1     CMP   #$09
-         BCC   :ok2
-         JMP   illQ
-:ok2     TAX
+         BNE   :ok
+         JMP   chkpBits   ; exit, no more cmds
+:ok      TAX
          LDA   cmdBits,X
          TAX
          JSR   advBits
@@ -166,6 +169,22 @@ stBits   ENT
          BRA   :chk
 :fin     STY   bitPtr
          RTS
+
+* Save the last few bits when done
+clsBits  ENT
+         LDA   bitPtr
+         AND   #$07
+         TAY
+         BEQ   :fin
+         LDA   lkBack
+         PHA
+:loop    LSR
+         DEY
+         BNE   :loop
+         STA   (stream)
+         PLA
+         STA   lkBack
+:fin     RTS
 
 illQ     LDX   #ILLQTY
          JMP   DOERR

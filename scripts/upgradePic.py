@@ -16,15 +16,14 @@ import encode
 # 7 = stroke [code,xl,xh,y,brush] (5)
 
 # new picture codes as bit stream
-# 0 = end (4)
-# 1 = color [code(4),mask1(8),mask2(8)] (20)
-# 2 = mode [code(4),flags(8)] (12)
-# 3 = setCurs [code(4),x(10),y(8)] (22)
-# 4 = plot [code(4),x(10),y(8)] (22)
-# 5 = lineTo [code(4),x(10),y(8)] (22)
-# 6 = hline [code(4),x1(10),x2(10),y(8)] (32)
-# 7 = trap [code,x0,x1,x2,x3,y0,y1] (60)
-# 8 = stroke [code(4),x(10),y(8),brush(4)] (26)
+# 0 = end (3)
+# 1 = color [code(3),mask1(8),mask2(8)] (19)
+# 2 = xor [code(3),flag(1)] (4)
+# 3 = setCurs [code(3),x(10),y(8)] (21)
+# 4 = plot [code(3),x(10),y(8)] (21)
+# 5 = lineTo [code(3),x(10),y(8)] (21)
+# 6 = trap [code,x0,x1,x2,x3,y0,y1] (59)
+# 7 = stroke [code(3),x(10),y(8),brush(3)] (24)
 
 if len(sys.argv)!=2:
     print("provide the path to a file image")
@@ -53,7 +52,7 @@ while ptr<len(bytes):
         encoder.color(bytes[ptr+1],bytes[ptr+2])
         ptr += 3
     if bytes[ptr]==1:
-        encoder.mode(bytes[ptr+1])
+        encoder.xor(1 if bytes[ptr+1]==128 else 0)
         ptr += 2
     if bytes[ptr]==2:
         raise ValueError("recursive draw not allowed")
@@ -62,10 +61,7 @@ while ptr<len(bytes):
         encoder.plot(x,bytes[ptr+3])
         ptr += 4
     if bytes[ptr]==4:
-        x0 = bytes[ptr+1]+256*bytes[ptr+2]
-        x1 = bytes[ptr+4]+256*bytes[ptr+5]
-        encoder.hline(x0,x1,bytes[ptr+3])
-        ptr += 6
+        raise ValueError("hline not allowed")
     if bytes[ptr]==5:
         x1 = bytes[ptr+1]+256*bytes[ptr+2]
         x0 = bytes[ptr+4]+256*bytes[ptr+5]
@@ -104,5 +100,6 @@ bytes_out = encoder.getAry()
 print("found",cmdCount,"cmds")
 print("new length",len(bytes_out))
 
-with open("hydra","wb") as f:
+old_fname = pathlib.Path(sys.argv[1]).name
+with open(old_fname + ".bits","wb") as f:
     f.write(bytes_out)

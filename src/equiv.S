@@ -64,7 +64,7 @@ HGRE     =     $d4        ; same, word
 HCOUNT   =     $1d        ; same, word
 MODE     =     $f9        ; drawing mode
 
-* ROM pointers used by Applesoft
+* ZP used by Applesoft
 
 ILLQTY   =     $35        ; ILLEGAL QUANTITY
 STRLNG   =     $B0        ; STRING TOO LONG

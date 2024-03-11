@@ -5,56 +5,58 @@
 
 * subroutines for encoding a picture.
 * this is all conditional assembly.
-* encoders usually need to preserve inputs.
 
          PUT   equiv
          USE   macros
 
+* imports from BITSTREAM
+
 stBits   EXT
+clsBits  EXT
 resmBits EXT
-suspBits EXT
+chkpBits EXT
 seek     EXT
 
          DO    _builder
 
-* encode command indexed by X
+* main interface, encode command indexed by X.
+* update cmdIdx and checkpoint stream record.
 doEncode ENT
-         LDA   record
-         BNE   :cont
-         RTS
-:cont    TXA
+         JSR   resmp
+         TXA
          PHA
-         LDX   #4
+         LDX   #3
          JSR   stBits
          PLA
          ASL
          TAX
          JMP   (enTable,X)
-closEn   inc16 cmdCount
+closEn   inc16 cmdIdx
+         JSR   chkpp
          RTS
 
 resmp    ENT
          mkptr encoder;zptr
          JMP   resmBits
 
-suspp    ENT
+chkpp    ENT
          mkptr encoder;zptr
-         JMP   suspBits
+         JMP   chkpBits
 
 * seek by X00 commands.
 * if stream=0 seek from current position.
 * sets zptr to the decoder descriptor.
 seekp    ENT
          mkptr encoder;zptr
-         cp16  cmdCount;prod
+         cp16  cmdIdx;prod
          JSR   seek
-         cp16  prod;cmdCount
+         cp16  prod;cmdIdx
          RTS
 
 * return command count in Y + 256*A
 tellp    ENT
-         LDY   cmdCount
-         LDA   cmdCount+1
+         LDY   cmdIdx
+         LDA   cmdIdx+1
          RTS
 
 * pack 10-bit coord from A + 256*X.
@@ -66,14 +68,8 @@ setAX    PHX
          JSR   stBits
          RTS
 
-* encode end of drawing
-enEnd    LDA   bitPtr
-         AND   #$07
-         BEQ   :close
-:loop    TAX
-         LDA   #$00
-         JSR   stBits
-:close   RTS              ; no closeEn
+* encode end of drawing (nothing to add)
+enEnd    JMP   clsBits    ; no closeEn
 
 * encode the color currently at CLRBAS1,2
 enColor  LDX   #8
@@ -84,9 +80,11 @@ enColor  LDX   #8
          JSR   stBits
          JMP   closEn
 
-* encode mode as current MODE
-enMode   LDX   #8
+* encode XOR bit from MODE
+enMode   LDX   #1
          LDA   MODE
+         ROL
+         ROL
          JSR   stBits
          JMP   closEn
 
@@ -105,18 +103,6 @@ enLineTo LDA   x1
          JSR   setAX
          LDX   #8
          LDA   y1
-         JSR   stBits
-         JMP   closEn
-
-* encode horizontal line from X0,Y0 to x1,Y0.
-enHline  LDA   X0
-         LDX   X0+1
-         JSR   setAX
-         LDA   x1
-         LDA   x1+1
-         JSR   setAX
-         LDX   #8
-         LDA   Y0
          JSR   stBits
          JMP   closEn
 
@@ -148,7 +134,7 @@ enTrap   LDA   X0
 
          JMP   closEn
 
-* encode stroke of brush byt at X0,Y0.
+* encode stroke of brush y1 at X0,Y0.
 * brush is already referenced to 0.
 enStroke LDA   X0
          LDX   X0+1
@@ -158,8 +144,8 @@ enStroke LDA   X0
          LDA   Y0
          JSR   stBits
 
-         LDX   #4
-         LDA   byt
+         LDX   #3
+         LDA   y1
          JSR   stBits
 
          JMP   closEn
@@ -171,12 +157,8 @@ illQ     LDX   #ILLQTY
 * bytePtr(2),lookahead,lookbehind,bitPtr
 encoder  ENT
          DS    5
-cmdCount HEX   00,00
+cmdIdx   HEX   00,00
 
-record   ENT
-         HEX   00
-
-enTable  DA    enEnd,enColor,enMode,enCurs,enCurs
-         DA    enLineTo,enHline,enTrap,enStroke
+enTable  DA    enEnd,enColor,enMode,enCurs,enCurs,enLineTo,enTrap,enStroke
 
          FIN

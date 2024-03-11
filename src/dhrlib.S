@@ -7,9 +7,16 @@
 * This handles the ampersand interface to the core
 * module, and manages picture encoding/decoding.
 
+* DHR mode
+* --------
+* bits 0-2 = last command code
+* bits 3-4 = reserved
+* bit 5 = scanning
+* bit 6 = recording
+* bit 7 = XOR
+
          PUT   equiv
          USE   macros
-         USE   encodemacs
 
 * imports from CORE
 
@@ -20,33 +27,32 @@ setClr   EXT
 plot     EXT
 plotc    EXT
 lineTo   EXT
-hline    EXT
 stroke   EXT
 trap     EXT
 tile     EXT
 print    EXT
+
+* imports from DRAW
+
+encExe   EXT
 
 * imports from DECODE
 
 decoder  EXT
 seekg    EXT
 tellg    EXT
-dcCmd    EXT
-dcColor  EXT
-dcMode   EXT
-dcPlot   EXT
-dcLineTo EXT
-dcHline  EXT
-dcTrap   EXT
-dcStroke EXT
+resmg    EXT
+chkpg    EXT
+doDecode EXT
 
 * imports from ENCODE
 
 encoder  EXT
 seekp    EXT
 tellp    EXT
+resmp    EXT
+chkpp    EXT
 doEncode EXT
-record   EXT
 
 * Main Ampersand dispatcher
 * KEEP THIS AS THE FIRST ADDRESSABLE ITEM
@@ -155,20 +161,6 @@ ampBit   JSR   CHKOPN
 :ill     LDX   #ILLQTY
          JMP   DOERR
 
-* inistk
-ampInStk STZ   stack
-         RTS
-
-* stkptr > x
-ampSPtr  JSR   chkGtr
-         JSR   PTRGET
-         LDA   VALTYP
-         BNE   :err
-         LDA   stack
-         JSR   saveByt
-         JMP   ampDone
-:err     JMP   badTyp
-
 * psh < x
 ampPh    JSR   chkLess
          JSR   GETBYT
@@ -215,14 +207,25 @@ ampClr   JSR   GETBYT
          PLA
          LDY   #CLRBAS2
          JSR   setClr
-         enColor
+         LDX   #1
+         JSR   encExe
          JMP   ampDone
 
 * mode=x
 ampMode  JSR   chkEq
          JSR   GETBYT
          STX   MODE
-         enMode
+         LDX   #2
+         JSR   encExe
+         JMP   ampDone
+
+ampMove  JSR   chkTo
+         JSR   GETNUM
+         JSR   bound
+         STX   Y0
+         cp16  X00;X0
+         LDX   #3
+         JSR   encExe
          JMP   ampDone
 
 * hplot syntax same as HGR
@@ -232,29 +235,26 @@ ampPlot  LDA   #to_t
 :loop    JSR   CHRGET
          JSR   GETNUM
          JSR   bound
-         TXA
-         TAY
-         LDA   X00
-         LDX   X00+1
-         enLineTo
-         JSR   lineTo
+         cp16  X00;x1
+         STX   y1
+         LDX   #5
+         JSR   encExe
          LDA   #to_t
          CMP   (TXTPTR)
          BEQ   :loop
          JMP   ampDone
 :iniCurs JSR   GETNUM
          JSR   bound
-         STX   Y0
          cp16  X00;X0
-         JSR   setHCurs
-         JSR   setVCurs
+         STX   Y0
          LDA   #to_t
          CMP   (TXTPTR)
          BEQ   :curs
-         enPlot
-         JSR   plotc
+         LDX   #4
+         JSR   encExe
          JMP   ampDone
-:curs    enCurs
+:curs    LDX   #3
+         JSR   encExe
          BRA   :loop
 
 * trap at x0,x1,y0 to x2,x3,y1
@@ -286,8 +286,8 @@ ampTrap  JSR   chkAt
          lte16 X0;x1
          lte16 x2;x3
 
-         enTrap
-         JSR   trap
+         LDX   #6
+         JSR   encExe
          JMP   ampDone
 
 * stroke#brush at x,y
@@ -303,17 +303,28 @@ ampStrk  JSR   chkPnd
          PLX
          BEQ   :point
          DEX              ; ref brush to 0
-         enStroke
-         JSR   stroke
+         STX   y1
+         LDX   #7
+         JSR   encExe
          JMP   ampDone
-:point   enPlot
-         JSR   plot
+:point   LDX   #4
+         JSR   encExe
          JMP   ampDone
 
-* draw at dx,dy.
+* draw [n] at dx,dy.
 * cannot bounds check at this level.
 * dx,dy are treated as int16.
-ampDraw  JSR   chkAt
+ampDraw  LDA   #at_t
+         CMP   (TXTPTR)
+         BEQ   :max
+         JSR   NUMEVL
+         JSR   GETADR
+         cp16  X00;countdwn
+         BRA   :at
+:max     STZ   countdwn
+         LDA   #$10
+         STA   countdwn+1
+:at      JSR   chkAt
          JSR   NUMEVL
          JSR   GETADR
          cp16  X00;DX
@@ -364,15 +375,14 @@ ampSeekg JSR   parsSeek
          JSR   seekg
          JMP   ampDone
 
-* tellg > x
-ampTellg JSR   chkGtr
-         JSR   PTRGET
-         LDA   VALTYP
-         BNE   :err
+* tellg(addr,bit,cmds)
+ampTellg JSR   resmg
          JSR   tellg
-         JSR   saveInt
+         STY   prod
+         STA   prod+1
+         JSR   parsTell
+         JSR   chkpg
          JMP   ampDone
-:err     JMP   badTyp
 
          DO    _builder
 
@@ -381,25 +391,36 @@ ampSeekp JSR   parsSeek
          JSR   seekp
          JMP   ampDone
 
-* tellp > x
-ampTellp JSR   chkGtr
-         JSR   PTRGET
-         LDA   VALTYP
-         BNE   :err
+* tellp(addr,bit,cmds)
+ampTellp JSR   resmp
          JSR   tellp
-         JSR   saveInt
-         JMP   ampDone
-:err     JMP   badTyp
-
-ampRec   LDA   #$01
-         STA   record
+         STY   prod
+         STA   prod+1
+         JSR   parsTell
+         JSR   chkpp
          JMP   ampDone
 
-ampStop  LDA   #$00
-         STA   record
+* rec - record subsequent commands
+ampRec   LDA   #%01000000
+         ORA   MODE
+         STA   MODE
          JMP   ampDone
 
-ampEnd   enEnd
+* scan - record commands but do not render
+ampScan  LDA   #%00100000
+         ORA   MODE
+         STA   MODE
+         JMP   ampDone
+
+* cancels both REC and SCAN
+ampStop  LDA   #%10011111
+         AND   MODE
+         STA   MODE
+         JMP   ampDone
+
+* end - write end of drawing marker
+ampEnd   LDX   #0
+         JSR   encExe
          JMP   ampDone
 
          FIN
@@ -420,6 +441,30 @@ parsSeek JSR   CHKOPN
          JSR   CHKCLS
          RTS
 
+parsTell JSR   CHKOPN
+         JSR   PTRGET
+         LDA   VALTYP
+         BNE   :err
+         LDY   stream
+         LDA   stream+1
+         JSR   saveInt
+         JSR   CHKCOM
+         JSR   PTRGET
+         LDA   VALTYP
+         BNE   :err
+         LDA   bitPtr
+         JSR   saveByt
+         JSR   CHKCOM
+         JSR   PTRGET
+         LDA   VALTYP
+         BNE   :err
+         LDY   prod
+         LDA   prod+1
+         JSR   saveInt
+         JSR   CHKCLS
+         RTS
+:err     JMP   badTyp
+
 * save A in the last variable
 saveByt  TAY
          LDA   #$00
@@ -430,35 +475,25 @@ saveInt  JSR   INT2FP
          JSR   MOVMF
          RTS
 
-* push X onto internal stack.
-* stack[0] is stack pointer.
-* stack[1-31] is stack data.
-psh      ENT
-         LDY   stack
-         INY
-         CPY   #$20
-         BCC   :goPh
-         LDY   #$01
-:shftS   LDA   stack+1,Y
-         STA   stack,Y
-         INY
-         CPY   #$1F
-         BEQ   :goPh
-         BRA   :shftS
-:goPh    TXA
-         STA   stack,Y
-         STY   stack
+* push X onto cyclic stack.
+psh      LDA   stkptr
+         INC
+         AND   #%00011111
+         TAY
+         TXA
+         STA   stkdat,Y
+         STY   stkptr
          RTS
 
-* pull from internal stack into A.
-pul      ENT
-         LDY   stack
-         BEQ   :noData
-         LDA   stack,Y
-         DEC   stack
+* pull from cyclic stack into A.    
+pul      LDY   stkptr
+         LDA   stkdat,Y
+         DEC   stkptr
+         BMI   :roll
          RTS
-:noData  LDX   #NODATA
-         JMP   DOERR
+:roll    LDY   #%00011111
+         STY   stkptr
+         RTS
 
 illQ     LDX   #ILLQTY
          JMP   DOERR
@@ -503,52 +538,23 @@ bndBrsh  CPX   #maxBrsh+1
          RTS
 
 * Render a binary coded drawing with offset DX,X00.
-* Decoders call closDc within, except for dcCmd.
-draw
-:go      ph16  DX
-         JSR   dcCmd
-         CMP   #$01
-         BNE   :mode
-:color   JSR   dcColor
-         JMP   :next
-:mode    CMP   #$02
-         BNE   :curs
-         JSR   dcMode
-         JMP   :next
-:curs    CMP   #$03
-         BNE   :plot
-         JSR   dcPlot
-         JSR   setHCurs
-         JSR   setVCurs
-         JMP   :next
-:plot    CMP   #$04
-         BNE   :lineTo
-         JSR   dcPlot
-         JSR   plot
-         JMP   :next
-:lineTo  CMP   #$05
-         BNE   :hline
-         JSR   dcLineTo
-         JSR   lineTo
-         JMP   :next
-:hline   CMP   #$06
-         BNE   :trap
-         JSR   dcHline
-         JSR   hline
-         JMP   :next
-:trap    CMP   #$07
-         BNE   :stroke
-         JSR   dcTrap
-         JSR   trap
-         JMP   :next
-:stroke  CMP   #$08
-         BNE   :exit
-         JSR   dcStroke
-         JSR   stroke
-:next    pl16  DX
-         JMP   :go
-:exit    pl16  DX
+* Execute a maximum of `countdwn` commands.
+draw     LDA   countdwn
+         BNE   :go
+         LDA   countdwn+1
+         BNE   :go
          RTS
+:go      JSR   doDecode
+         LDA   MODE
+         AND   #%00000111
+         BEQ   :fin
+         TAX
+         ph16  DX
+         JSR   encExe
+         pl16  DX
+         dec16 countdwn
+         JMP   draw
+:fin     RTS
 
 cmosErr  JSR   BELL
          LDY   #$00
@@ -561,12 +567,16 @@ cmosErr  JSR   BELL
 :restart JSR   STKINI
          JMP   RESTART
 
+* Table of ampersands.
+* If strings overlap, longer string must go first.
 ampTbl   ASC   'DHR',00
          DA    ampDHR
          DFB   hcolor_t,0
          DA    ampClr
          ASC   'MODE',00
          DA    ampMode
+         ASC   'MOVE',00
+         DA    ampMove
          DFB   hplot_t,0
          DA    ampPlot
          ASC   'TRAP',00
@@ -577,31 +587,31 @@ ampTbl   ASC   'DHR',00
          DA    ampTile
          DFB   print_t,0
          DA    ampPrint
-
          DFB   draw_t,0
          DA    ampDraw
+
+         DO    _builder
          DFB   end_t,0
          DA    ampEnd
          ASC   'REC',00
          DA    ampRec
+         ASC   'SCAN',00
+         DA    ampScan
          DFB   stop_t,0
-         DA    ampStop
+         DA    ampStop         
+         ASC   'SEEKP',00
+         DA    ampSeekp
+         ASC   'TELLP',00
+         DA    ampTellp
+         FIN
          
          ASC   'SEEKG',00
          DA    ampSeekg
          ASC   'TELLG',00
          DA    ampTellg
-         ASC   'SEEKP',00
-         DA    ampSeekp
-         ASC   'TELLP',00
-         DA    ampTellp
 
          ASC   'BIT',00
          DA    ampBit
-         ASC   'INISTK',00
-         DA    ampInStk
-         ASC   'STKPTR',00
-         DA    ampSPtr
          ASC   'PSH',00
          DA    ampPh
          ASC   'PUL',00
@@ -610,12 +620,14 @@ ampTbl   ASC   'DHR',00
          HEX   00         ; end table
 
 absPtr   HEX   00,00
+countdwn HEX   00,00
 
 noCMOS   ASC   "DHRLIB REQUIRES 65C02",00
 
+* bits after the command code
 cmdBits  ENT
-         HEX   04,10,08,12,12,12,1C,38,16
+         HEX   00,10,01,12,12,12,38,15
 
-* undo stack
-stack    ENT
-         DS    $20
+* cyclic stack
+stkptr   HEX   00
+stkdat   DS    $20
