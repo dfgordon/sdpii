@@ -565,7 +565,7 @@ stroke   ENT
 :fin     RTS
 
 * draw tile A at X=x/14,Y=y/8, tile size <= 255
-* x1 = pointer to map data, DRAWPTR = pointer to tile data
+* DRAWPTR = pointer to tile data
 * expect 0-indexing by this point
 tile     ENT
          PHA
@@ -616,17 +616,20 @@ tile     ENT
 :loopx   PHX
          PHY
 
-         LDY   COLUMN
-         LDA   (zptr)
          STZ   AUXMEM
-         paint
-         inc16 zptr
+:rep     LDY   COLUMN
          LDA   (zptr)
-         STZ   MAINMEM
-         paint
+         LDX   MODE
+         BPL   :norm
+         EOR   #$FF
+:norm    paint
          inc16 zptr
+         LDA   CHKAUX
+         BPL   :cont
+         STZ   MAINMEM
+         BRA   :rep
 
-         PLY
+:cont    PLY
          PLX
          DEX
          BEQ   :nxtRow
@@ -668,6 +671,32 @@ print    ENT
          BCC   :nxt
          RTS
 
+* clear A columns at X=x/14,Y=y/8
+clear    ENT
+         STA   HCOUNT
+         STX   COLUMN
+         LDA   rowTbLo,Y
+         STA   ROWPTR
+         LDA   rowTbHi,Y
+         STA   ROWPTR+1
+         
+         LDA   #$08
+         STA   byt
+:loopy   LDX   HCOUNT
+         LDY   COLUMN
+:loopx   LDA   #$00
+         STZ   AUXMEM
+         STA   (ROWPTR),Y
+         STZ   MAINMEM
+         STA   (ROWPTR),Y
+         INY
+         DEX
+         BNE   :loopx
+         JSR   INCRY
+         DEC   byt
+         BNE   :loopy
+         RTS
+         
 * Multiply two bytes to get a word
 * prod = fac1 * fac2
 mulbb    STZ   prod

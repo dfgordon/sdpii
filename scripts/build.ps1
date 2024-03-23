@@ -5,7 +5,7 @@
 #Requires -Version 7.4
 
 Set-Variable floppy "./build/sdpii.woz"
-Set-Variable asmfiles @("dhrlib","encode","decode","bitstream","equiv","macros")
+Set-Variable asmfiles @("dhrlib","core","draw","encode","decode","bitstream","equiv","macros")
 Set-Variable basicFiles @("startup","paint","tile","repaint")
 
 if (!(Test-Path ../build)) {

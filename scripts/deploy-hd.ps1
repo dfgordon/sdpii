@@ -7,7 +7,7 @@
 
 Set-Variable hd ($env:USERPROFILE + "\OneDrive\Documents\appleii\DISKS\microdrive-prodos-working.po")
 Set-Variable prodosPath "programming/merlin/sdpii/"
-Set-Variable asmfiles @("dhrlib","encode","decode","bitstream","equiv","macros")
+Set-Variable asmfiles @("dhrlib","core","draw","encode","decode","bitstream","equiv","macros")
 Set-Variable basicFiles @("paint","tile","repaint")
 
 if (!(Test-Path build)) {
@@ -41,4 +41,4 @@ Remove-Item ./src/_FileInformation.txt -Force
 # update the project's DHRLIB file image
 a2kit get -d $hd -f ($prodosPath + "dhrlib") -t any > ./fimg/dhrlib.json
 
-a2kit catalog -d $hd -f $prodosPath
+#a2kit catalog -d $hd -f $prodosPath

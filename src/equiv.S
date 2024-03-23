@@ -1,8 +1,8 @@
 * Conditional assembly
 
-_safe    =     1          ; protect memory
+_safe    =     0          ; protect memory
 _wrap    =     1          ; wrap cursor
-_bound   =     1          ; bounds check &s
+_bound   =     0          ; bounds check &s
 _builder =     1          ; enable pic encoding
 maxBrsh  =     7
 
@@ -23,6 +23,7 @@ end_t    =     $80
 del_t    =     $85
 pop_t    =     $a1
 stop_t   =     $b3
+clear_t  =     $bd
 
 * ZP non-overlapping (0-5 ok for temp)
 stream   =     $00        ; stream ptr

@@ -31,6 +31,7 @@ stroke   EXT
 trap     EXT
 tile     EXT
 print    EXT
+clear    EXT
 
 * imports from DRAW
 
@@ -145,7 +146,7 @@ ampBit   JSR   CHKOPN
 :and     AND   #$01
          JSR   saveByt
          JSR   CHKCLS
-         RTS
+         JMP   ampDone
 :parse   JSR   PTRGET
          LDA   VALTYP
          BNE   :err
@@ -156,7 +157,7 @@ ampBit   JSR   CHKOPN
          CMP   #$00
          BNE   :ill
          TYA
-         JMP   ampDone
+         RTS
 :err     JMP   badTyp
 :ill     LDX   #ILLQTY
          JMP   DOERR
@@ -182,7 +183,7 @@ ampDHR   JSR   dhrInit
          JMP   ampDone
 
 * hcolor = c1[,c2,c3,c4]
-ampClr   JSR   GETBYT
+ampColor JSR   GETBYT
          PHX
          CMP   #44        ; comma
          BEQ   :dither
@@ -361,13 +362,49 @@ ampPrint JSR   FRMEVL
          JSR   bndTxt
          TXA
          TAY
-         LDA   X00
-         TAX
+         LDX   X00
          DEX
          DEY
          pl16  INDEX
          LDA   stat
          JSR   print
+         JMP   ampDone
+
+* clear x0,y0 [to x1,y1]
+ampClear JSR   GETNUM
+         JSR   bndTxt
+         LDA   X00
+         STA   X0
+         STX   Y0
+         LDA   (TXTPTR)
+         CMP   #to_t
+         BEQ   :to
+         LDA   #40
+         LDY   Y0
+         BRA   :go
+:to      JSR   chkTo
+         JSR   GETNUM
+         JSR   bndTxt
+         TXA
+         TAY
+         LDA   X00   
+:go      SEC
+         SBC   X0
+         BPL   :ok
+         JMP   illQ
+:ok      INC
+         LDX   X0
+         DEX
+:loop    DEY
+         PHY
+         PHX
+         PHA
+         JSR   clear
+         PLA
+         PLX
+         PLY
+         CPY   Y0
+         BPL   :loop
          JMP   ampDone
 
 * seekg(address,commands)
@@ -519,6 +556,7 @@ boundX   DO    _bound
 
 * check X00,X within 40x24 text grid.
 * assumes indexing from 1.
+* this is the *only* guard for text commands.
 bndTxt   DEX
          CPX   #$18
          BCS   illQ
@@ -572,7 +610,7 @@ cmosErr  JSR   BELL
 ampTbl   ASC   'DHR',00
          DA    ampDHR
          DFB   hcolor_t,0
-         DA    ampClr
+         DA    ampColor
          ASC   'MODE',00
          DA    ampMode
          ASC   'MOVE',00
@@ -587,6 +625,8 @@ ampTbl   ASC   'DHR',00
          DA    ampTile
          DFB   print_t,0
          DA    ampPrint
+         DFB   clear_t,0
+         DA    ampClear
          DFB   draw_t,0
          DA    ampDraw
 
