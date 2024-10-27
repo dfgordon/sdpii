@@ -10,7 +10,7 @@ Apple II double high resolution (DHR) graphics:
 
 ## Status
 
-Getting closer...
+Things still to be added to DHRLIB include scrolling and rendering map views.  Picture format and Applesoft `paint` are unlikely to change much.  Applesoft `repaint` and `tile` may change.
 
 ## Documentation
 

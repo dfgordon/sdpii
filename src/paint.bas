@@ -1,4 +1,4 @@
-1 lomem: 8*4096: if peek(-1088)=234 then text: home: print chr$(7);"65C02 REQUIRED": end
+1 himem: 9*4096: lomem: 8*4096: if peek(-1088)=234 then text: home: print chr$(7);"65C02 REQUIRED": end
 2  print chr$(4);"bload dhrlib": print chr$(4);"bload font1": print  chr$ (4);"pr#3"
 3  poke 1013,76: poke 1014,0: poke 1015,64: poke 232,0: poke 233,96: def fn mod (x) = x - de*int(x/de)
 4  gosub 800: goto 850
@@ -14,7 +14,7 @@
 13 w$ = "TAB=prompt, ESC=exit, SPC=stroke": goto 19
 14 w$ = chr$(128)+chr$(132) + "=move,1=line,2=trap,3=tri,x=xor": goto 19
 15 w$ = chr$(128)+"b=brush,c=color,d=dither,^x=cut,^z=pop": goto 19
-16 w$ = "brush=" + str$(br) + ",xor=" + str$(pm) + ",len=" + str$(addr-a0) + "." + str$(8-bit) + ",cmd=" + str$(cnt): goto 19
+16 w$ = "brush=" + str$(br) + ",len=" + str$(addr-a0) + "." + str$(8-bit) + ",cmd=" + str$(cnt): goto 19
 17 &trap at 0,13,184 to 0,13,191: w$ = str$(x) + "," + str$(y) + "   ": &print w$ at 3,24: return 
 19 &print w$ at 1,24: return
 
@@ -24,10 +24,8 @@
 23 poke 49168,0: return
 
 40  TEXT : HOME : ? "SDP II Painter v-dev": VTAB 13: &tellp(addr,bit,cnt): ? "length=";addr-a0;".";8-bit:L = 3:P = 5:W$ = "Select- ":B$ =  CHR$ (13)
-41 PN$(0) = "New Pic":PN$(1) = "Load Pic":PN$(2) = "Save Pic":PN$(3) = "Append Pic": PN$(4) = "Edit": PN$(5) = "Exit": GOSUB 50
-42  ON M + 1 GOTO 45,670,600,650,860,870
-45  home: print "Erase? ": gosub 20: if a$="Y" then 850
-46  print: print "canceled. ";: gosub 20: goto 40
+41 PN$(0) = "Edit": PN$(1) = "Load Pic":PN$(2) = "Save Pic":PN$(3) = "Append Pic": PN$(4) = "Clear": PN$(5) = "Exit": GOSUB 50
+42  ON M + 1 GOTO 860,670,600,650,850,870
 
 50  rem menu subroutine
 51 N = 0:M = 0: HTAB 1: VTAB L: PRINT "1) ";: INVERSE : PRINT PN$(0): NORMAL : IF P > 0 THEN  FOR I = 1 TO P: PRINT I + 1;") ";PN$(I): NEXT 
@@ -159,7 +157,12 @@
 661 &seekg(addr+1,0): &rec: &scan: &draw at 0,0: &end: &stop: goto 40
 
 670 rem load
-680 &seekp(a0,0): goto 650
+680 gosub 700: &seekp(a0,0): goto 650
+
+700 rem confirm
+701  if addr=a0 and bit=8 or a0=0 then return
+702  home: print "Erase? ": gosub 20: if a$="Y" then return
+703  pop: print: print "canceled. ";: gosub 20: goto 40
 
 800 rem array setup
 810 dim cl(4): dim x(3): dim y(3): dim pn$(9): dim cmd$(7)
@@ -167,7 +170,7 @@
 840 return
 
 850 rem new pic
-851 x = 280: y = 80: ps = 0: pm = 0: br = 0: a0 = 81*256: poke a0,0: addr = a0: bit = 8: cnt = 0: goto 40
+851 gosub 700: x = 280: y = 80: ps = 0: pm = 0: br = 0: a0 = 81*256: &seekg(a0,0): &seekp(a0,0): poke a0,0: addr = a0: bit = 8: cnt = 0: goto 40
 
 860 rem edit
 861 &dhr: poke -16302,0: &seekg(a0,0): &draw at 0,0: gosub 880: gosub 10: pr = 1: goto 60
@@ -194,24 +197,21 @@
 960 goto 911
 
 1100 rem select part
-1110 &clear 1,24: &print chr$(132) + ", SPC=start/end" at 1,24: m = -1: n = 0
+1110 &clear 1,24: &print chr$(128) + chr$(132) + ", SPC=start/end" at 1,24: m = -1: n = 0: x0 = 0: y0 = 0
 1111 &rec: &end: &stop: &seekg(a0,0)
-1120 gosub 1190: gosub 20: gosub 1190
-1121 if a = 8 and n>0 then n = n - 1: &seekg(a0,n): goto 1120
-1122 if a = 21 then 1140
-1123 if a$ = " " and m=-1 then m = n: goto 1140
+1120 gosub 1140: gosub 20: gosub 1140: ds = 1: if peek(49249)>127 then ds = 10
+1121 if a = 8 and n-ds>=0 then n = n - ds: &seekg(a0,n): goto 1120
+1122 if a = 21 then n = n + ds: &seekg(a0,n): &tellg(addr,bit,n): goto 1120
+1123 if a$ = " " and m=-1 then m = n: a = 21: ds = 1: goto 1122
 1124 if a$ = " " and m>=0 and n>m then 1150
 1132 if a = 27 then 1180
 1133 goto 1120
 
-1140 de = 8: if fn mod(peek(249)) <> 0 then n = n + 1: &seekg(a0,n): rem next
-1141 goto 1120
+1140 &mode=128: &move to x0,y0: &draw 1 at 0,0: de = 8: cmd = fn mod(peek(249)): if cmd <> 5 then x0 = peek(224) + peek(225)*256: y0 = peek(226): rem highlight part
+1141 &seekg(a0,n): w$ = str$(m) + " " + str$(n) + " " + cmd$(cmd): &mode=cmd: &clear 28,24 to 32,24: &print w$ at 40-len(w$),24: return
 
 1150 rem cut range m..n
 1151 &seekg(a0,n): &seekp(a0,m): &rec: &scan: &draw at 0,0: &end: &stop
 1180 &dhr: poke -16302,0: &seekg(a0,0): &draw at 0,0: gosub 880: gosub 10: return: rem cleanup and return
-
-1190 &mode=128: &draw 1 at 0,0: &seekg(a0,n): rem highlight part
-1191 poke 49237,0: htab 1: vtab 22: de = 8: print m" "n" "cmd$(fn mod(peek(249)))"   ": return
 
 9990 data end,clr,mod,mov,plt,lin,trp,str

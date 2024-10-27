@@ -5,6 +5,9 @@
 
 * subroutines for handling bitstream.
 * usually called indirectly by encoder/decoder.
+* N.b. bitPtr is a countdown from 8 to 1, indicating
+* bits remaining to read at the current byte.  It should
+* never be left with the value 0.
 
          PUT   equiv
          USE   macros
@@ -37,6 +40,17 @@ resmBits ENT
          STA   lkAhed
 :fin     RTS
 
+* rewind 3 bits then fall into chkpBits
+rewind   CLC
+         LDA   bitPtr
+         ADC   #3
+         CMP   #9
+         BPL   :dec
+         STA   bitPtr
+         BRA   chkpBits
+:dec     AND   #7
+         STA   bitPtr
+         dec16 stream
 * checkpoint a bitstream, saving to descriptor at zptr
 chkpBits ENT
          LDY   #$00
@@ -69,7 +83,7 @@ seek     ENT
          JSR   rdBits
          CMP   #$00
          BNE   :ok
-         JMP   chkpBits   ; exit, no more cmds
+         JMP   rewind     ; exit, no more cmds
 :ok      TAX
          LDA   cmdBits,X
          TAX
