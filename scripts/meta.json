@@ -1,0 +1,23 @@
+{
+    "woz2": {
+        "info": {
+            "compatible_hardware": "7800",
+            "required_ram": "3000"
+        },
+        "meta": {
+            "title": "SDP II",
+            "subtitle": "Super Dungeon Plot II",
+            "developer": "Daniel Gordon",
+            "copyright": "MIT license",
+            "version": "0.0.0",
+            "language": "English",
+            "requires_ram": "48K",
+            "requires_rom": "Applesoft",
+            "apple2_requires": "Color TV recommended",
+            "requires_machine": "2c|2e+|2gs|2c+",
+            "side": "",
+            "side_name": "",
+            "notes": "double hi-res package for game application"
+        }
+    }
+}

@@ -1,8 +1,14 @@
 # Ancillary Notes
 
+## Version
+
+The version number is controlled by `scripts/meta.json`.  This is the WOZ metadata for the floppy distribution.  The build scripts will read this file and verify that the version number embedded in DHRLIB is consistent.  The BASIC programs retrieve the version number using the `&vers` ampersand.
+
+As a corollary, the entire package is always synchronized under the same version number.
+
 ## Auxiliary Memory
 
-Since SDP II is geared toward a case where there is an Applesoft front end, we suppose a RAM disk will be utilized.  Therefore DHRLIB does not use any auxiliary memory other than the DHR screen buffer.  But even when a RAM disk is connected, we still have pockets of free space that add up to about 3.5K:
+Since SDP II is geared toward a case where there is an Applesoft front end, we suppose a RAM disk will be utilized for swapping programs and/or variables.  Therefore DHRLIB does not use any auxiliary memory other than the DHR screen buffer.  But even when a RAM disk is connected, we still have pockets of free space that add up to about 3.5K:
 
 * $0000 to $0200 ($80-$FF reserved)
 * $0400 to $0800 (assuming we don't need native text)
@@ -26,10 +32,12 @@ Range | Usage
 ------|------
 $0801 - $2000 | Program
 $2000 - $4000 | Screen buffer
-$4000 - $5100 | DHRLIB + free space
-$5100 - $6000 | Picture workspace
+$4000 - $5XXX | DHRLIB
+$5XXX - $6000 | Picture workspace
 $6000 - $6652 | DHR font
 $8000 - $9000 | Variables
+
+The picture workspace is dynamically allocated based on the actual size of DHRLIB.
 
 The memory map used by `tile` is:
 
@@ -41,7 +49,16 @@ $4000 - $6000 | DHRLIB + free space
 $6000 - $8000 | Tile workspace
 $8000 - $8652 | DHR font
 
-To do: respond dynamically to the actual size of DHRLIB
+The memory map used by `map` is:
+
+Range | Usage
+------|------
+$0801 - $2000 | Program and variables
+$2000 - $4000 | Screen buffer
+$4000 - $6000 | DHRLIB + free space
+$6000 - $7000 | Tiles + free space
+$7000 - $8000 | Map workspace
+$8000 - $8652 | DHR font
 
 ### Minifier
 

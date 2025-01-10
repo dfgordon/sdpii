@@ -6,12 +6,17 @@
 * Module for rendering and encoding a drawing.
 
          PUT   equiv
+         USE   macros
 
 * imports from ENCODE
 
          DO    _builder
 doEncode EXT
          FIN
+
+* imports from DECODE
+
+doDecode EXT
 
 * imports from CORE
 
@@ -53,6 +58,29 @@ exLineTo LDA   x1
 
 exStroke LDX   y1
          JMP   stroke
+
+* Render a binary coded drawing with offset DX,X00.
+* Execute a maximum of `countdwn` commands.
+draw     ENT
+         LDA   countdwn
+         BNE   :go
+         LDA   countdwn+1
+         BNE   :go
+         RTS
+:go      JSR   doDecode
+         LDA   MODE
+         AND   #%00000111
+         BEQ   :fin
+         TAX
+         ph16  DX
+         JSR   encExe
+         pl16  DX
+         dec16 countdwn
+         JMP   draw
+:fin     RTS
+
+countdwn ENT
+         HEX   00,00
 
 * jmp table for execution
 exeTbl   DA    exEnd,exEnd,exEnd,exCurs,plot,exLineTo,trap,exStroke

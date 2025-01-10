@@ -5,30 +5,36 @@
 #Requires -Version 7.4
 
 Set-Variable floppy "./build/sdpii.woz"
-Set-Variable asmfiles @("dhrlib","core","draw","encode","decode","bitstream","equiv","macros")
-Set-Variable basicFiles @("startup","paint","tile","repaint")
+Set-Variable basicFiles @("startup","paint","tile","repaint","map")
 
 if (!(Test-Path ../build)) {
     mkdir ./build
 } else {
     Remove-Item ./build/*
 }
+
+# Get the version from the WOZ metadata
+$vers = (Get-Content ./scripts/meta.json | ConvertFrom-Json).woz2.meta.version
+# Check DHRLIB version
+(Get-Content ./src/dhrlib.S -Raw) -match 'version\s+DFB\s+([0-9]+,[0-9]+,[0-9]+)'
+$dhrlib_vers = $Matches[1] -replace ',','.'
+if ($vers -ne $dhrlib_vers) {
+    Write-Error ("DHRLIB version is " + $dhrlib_vers + ", but meta version is " + $vers)
+    exit 1
+}
+
+# Create bootable disk with WOZ metadata
 a2kit mkdsk -d $floppy -t woz2 -o prodos -v sdpii
-a2kit get -f ./fimg/prodos.json | a2kit put -d $floppy -f prodos -t any
-a2kit get -f ./fimg/basic.system.json | a2kit put -d $floppy -f basic.system -t any
+Get-Content ./fimg/prodos.json | a2kit put -d $floppy -f prodos -t any
+Get-Content ./fimg/basic.system.json | a2kit put -d $floppy -f basic.system -t any
+Get-Content ./scripts/meta.json | a2kit put -d $floppy -t meta
 
 foreach ($f in $basicFiles) {
-    a2kit get -f ("./src/" + $f + ".bas") |
-     a2kit minify -t atxt |
+    Get-Content ("./src/" + $f + ".bas") |
+     a2kit minify -t atxt --level 3|
       a2kit tokenize -a 2049 -t atxt |
        a2kit put -d $floppy -f $f -t atok
 }
-
-# foreach ($f in $asmFiles) {
-#     a2kit get -f ("./src/" + $f + ".S") |
-#      a2kit tokenize -t mtxt |
-#       a2kit put -d $floppy -f ($f + ".S") -t mtok
-# }
 
 Merlin32 ./src ./src/link32.S
 a2kit get -f ./src/dhrlib | a2kit put -d $floppy -f dhrlib -t bin -a 16384

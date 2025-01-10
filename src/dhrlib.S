@@ -4,8 +4,7 @@
          DSK   DHRLIB.L
 
 * Main program, link this first.
-* This handles the ampersand interface to the core
-* module, and manages picture encoding/decoding.
+* This handles the ampersand interface.
 
 * DHR mode
 * --------
@@ -14,6 +13,18 @@
 * bit 5 = scanning
 * bit 6 = recording
 * bit 7 = XOR
+
+* coordinates
+* -----------
+* Outward facing ampersand parameters follow
+* Applesoft conventions.
+* Pixel coordinates
+* are indexed from 0, on a 560x192 grid.
+* Text and tile coordinates
+* are indexed from 1, on a 40x24 grid (14x8 blocks).
+* In contrast, core parameters are always indexed from 0.
+* Tiles are positioned on a 40x24 grid regardless of size,
+* i.e., large tiles can be fractionally positioned.
 
          PUT   equiv
          USE   macros
@@ -32,10 +43,34 @@ trap     EXT
 tile     EXT
 print    EXT
 clear    EXT
+mod      EXT
+
+* imports from PARSE
+
+parsSeek EXT
+parsTell EXT
+txtPt    EXT
+mapPt    EXT
+bitwise8 EXT
+binary16 EXT
+bound    EXT
+boundX   EXT
+bndBrsh  EXT
+saveByt  EXT
+saveInt  EXT
+psh      EXT
+pul      EXT
 
 * imports from DRAW
 
 encExe   EXT
+draw     EXT
+countdwn EXT
+
+* imports from MAP
+
+submap   EXT
+scroll   EXT
 
 * imports from DECODE
 
@@ -132,43 +167,54 @@ chkStep  LDA   #step_t
          JMP   CHRGET
 :err     JMP   SNERR
 
-* bit (n,x)
-ampBit   JSR   CHKOPN
-         JSR   GETBYT
-         PHX
-         JSR   CHKCOM
-         JSR   :parse
-         PLX
+* &vers - push version numbers to cyclic stack
+ampVers  LDX   version+2
+         JSR   psh
+         LDX   version+1
+         JSR   psh
+         LDX   version
+         JSR   psh
+         RTS
+
+* &mod (realvar,aexpr)
+ampMod   JSR   binary16
+         JSR   mod
+         LDY   prod
+         LDA   prod+1
+         JSR   saveInt
+         JMP   ampDone
+         
+* &bit (realvar,aexpr)
+ampBit   JSR   bitwise8
 :loop1   BEQ   :and
          LSR
          DEX
          BRA   :loop1
 :and     AND   #$01
          JSR   saveByt
-         JSR   CHKCLS
          JMP   ampDone
-:parse   JSR   PTRGET
-         LDA   VALTYP
-         BNE   :err
-         LDA   VARPNT
-         LDY   VARPNT+1
-         JSR   MOVFM
-         JSR   GETADR
-         CMP   #$00
-         BNE   :ill
-         TYA
-         RTS
-:err     JMP   badTyp
-:ill     LDX   #ILLQTY
-         JMP   DOERR
 
-* psh < x
+* &and (realvar,aexpr)
+ampAnd   JSR   bitwise8
+         STX   stat
+         AND   stat
+         JSR   saveByt
+         JMP   ampDone
+
+* &and (realvar,aexpr)
+ampOr    JSR   bitwise8
+         STX   stat
+         ORA   stat
+         JSR   saveByt
+         JMP   ampDone
+
+* &psh < x
 ampPh    JSR   chkLess
          JSR   GETBYT
          JSR   psh
          JMP   ampDone
 
-* pul > x
+* &pul > x
 ampPl    JSR   chkGtr
          JSR   PTRGET
          LDA   VALTYP
@@ -176,13 +222,14 @@ ampPl    JSR   chkGtr
          JSR   pul
          JSR   saveByt
          JMP   ampDone
-:err     JMP   badTyp
+:err     LDX   #BADTYP
+         JMP   DOERR
 
-* dhr
+* &dhr
 ampDHR   JSR   dhrInit
          JMP   ampDone
 
-* hcolor = c1[,c2,c3,c4]
+* &hcolor = c1[,c2,c3,c4]
 ampColor JSR   GETBYT
          PHX
          CMP   #44        ; comma
@@ -212,7 +259,7 @@ ampColor JSR   GETBYT
          JSR   encExe
          JMP   ampDone
 
-* mode=x
+* &mode=x
 ampMode  JSR   chkEq
          JSR   GETBYT
          STX   MODE
@@ -229,7 +276,7 @@ ampMove  JSR   chkTo
          JSR   encExe
          JMP   ampDone
 
-* hplot syntax same as HGR
+* &hplot [to] x,y {[to xn,yn]}
 ampPlot  LDA   #to_t
          CMP   (TXTPTR)
          BNE   :iniCurs
@@ -258,7 +305,7 @@ ampPlot  LDA   #to_t
          JSR   encExe
          BRA   :loop
 
-* trap at x0,x1,y0 to x2,x3,y1
+* &trap at x0,x1,y0 to x2,x3,y1
 ampTrap  JSR   chkAt
 
          JSR   NUMEVL
@@ -291,7 +338,7 @@ ampTrap  JSR   chkAt
          JSR   encExe
          JMP   ampDone
 
-* stroke#brush at x,y
+* &stroke #brush at x,y
 ampStrk  JSR   chkPnd
          JSR   GETBYT
          PHX
@@ -312,7 +359,7 @@ ampStrk  JSR   chkPnd
          JSR   encExe
          JMP   ampDone
 
-* draw [n] at dx,dy.
+* &draw [n] at dx,dy.
 * cannot bounds check at this level.
 * dx,dy are treated as int16.
 ampDraw  LDA   #at_t
@@ -335,84 +382,102 @@ ampDraw  LDA   #at_t
          JSR   draw
          JMP   ampDone
 
-* tile #A at X,Y (X=X0/14+1, Y=Y0/8+1)
+* &tile #A at X,Y (units of 14x8 blocks, one-indexing).
+* size of tile can be any multiple of 14x8.
 ampTile  JSR   chkPnd
          JSR   GETBYT
          PHX
          JSR   chkAt
-         JSR   GETNUM
-         JSR   bndTxt
-         TXA
-         TAY
-         LDA   X00
-         TAX
+         JSR   txtPt
          PLA
-         DEX
-         DEY
          JSR   tile
          JMP   ampDone
 
-* print sexpr at X,Y (X=X0/14+1, Y=Y0/8+1)
+* &map at x1,y1 to x2,y2 at x,y [step dx,dy]
+* x,y are where to start on the screen in units of 14x8 blocks, one-indexed.
+* x1,y1 and x2,y2 define the submap, need not be positive or in bounds.
+* if dx,dy are provided use scroll methodology.
+ampMap   JSR   chkAt
+         JSR   mapPt
+         STX   x1
+         STY   x1+1
+         JSR   chkTo
+         JSR   mapPt
+         STX   x2
+         STY   x2+1
+         JSR   chkAt
+         JSR   txtPt
+         STX   X0
+         STY   X0+1
+         JSR   submap
+         JMP   ampDone
+
+* &scroll at x1,y1 to x2,y2 step dx,dy (units of 14x8 blocks, one-indexing)
+ampScrol JSR   chkAt
+         JSR   txtPt
+         STX   x1
+         STY   x1+1
+         JSR   chkTo
+         JSR   txtPt
+         STX   x2
+         STY   x2+1
+         JSR   chkStep
+         JSR   mapPt
+         STX   DX
+         STY   DX+1
+         JSR   scroll
+         JMP   ampDone
+
+* &print sexpr at X,Y (units of 14x8 tiles, one-indexing)
 ampPrint JSR   FRMEVL
          JSR   GETSTR
          ph16  INDEX
          STY   stat
          JSR   chkAt
-         JSR   GETNUM
-         JSR   bndTxt
-         TXA
-         TAY
-         LDX   X00
-         DEX
-         DEY
+         JSR   txtPt
          pl16  INDEX
          LDA   stat
          JSR   print
          JMP   ampDone
 
-* clear x0,y0 [to x1,y1]
-ampClear JSR   GETNUM
-         JSR   bndTxt
-         LDA   X00
-         STA   X0
-         STX   Y0
+* &clear x0,y0 [to x1,y1] (units of 14x8 tiles, one-indexing)
+ampClear JSR   txtPt
+         STX   X0
+         STY   Y0
          LDA   (TXTPTR)
          CMP   #to_t
          BEQ   :to
-         LDA   #40
+         LDA   #39
          LDY   Y0
          BRA   :go
 :to      JSR   chkTo
-         JSR   GETNUM
-         JSR   bndTxt
+         JSR   txtPt
          TXA
-         TAY
-         LDA   X00   
 :go      SEC
          SBC   X0
          BPL   :ok
-         JMP   illQ
+         LDX   #ILLQTY
+         JMP   DOERR
 :ok      INC
          LDX   X0
-         DEX
-:loop    DEY
-         PHY
+:loop    PHY
          PHX
          PHA
          JSR   clear
          PLA
          PLX
          PLY
+         DEY
          CPY   Y0
          BPL   :loop
          JMP   ampDone
 
-* seekg(address,commands)
+* &seekg(address,commands)
 ampSeekg JSR   parsSeek
          JSR   seekg
          JMP   ampDone
 
-* tellg(addr,bit,cmds)
+* &tellg(addr,bit,cmds)
 ampTellg JSR   resmg
          JSR   tellg
          STY   prod
@@ -423,12 +488,12 @@ ampTellg JSR   resmg
 
          DO    _builder
 
-* seekp(address,commands)
+* &seekp(address,commands)
 ampSeekp JSR   parsSeek
          JSR   seekp
          JMP   ampDone
 
-* tellp(addr,bit,cmds)
+* &tellp(addr,bit,cmds)
 ampTellp JSR   resmp
          JSR   tellp
          STY   prod
@@ -437,25 +502,22 @@ ampTellp JSR   resmp
          JSR   chkpp
          JMP   ampDone
 
-* rec - record subsequent commands
+* &rec - record subsequent commands
 ampRec   LDA   #%01000000
-         ORA   MODE
-         STA   MODE
+         TSB   MODE
          JMP   ampDone
 
-* scan - record commands but do not render
+* &scan - record commands but do not render
 ampScan  LDA   #%00100000
-         ORA   MODE
-         STA   MODE
+         TSB   MODE
          JMP   ampDone
 
-* cancels both REC and SCAN
-ampStop  LDA   #%10011111
-         AND   MODE
-         STA   MODE
+* &stop - cancels both REC and SCAN
+ampStop  LDA   #%01100000
+         TRB   MODE
          JMP   ampDone
 
-* end - write end of drawing marker
+* &end - write end of drawing marker
 ampEnd   LDX   #0
          JSR   encExe
          JMP   ampDone
@@ -466,133 +528,6 @@ ampDone  LDA   CHKAUX
          STA   stat
          STZ   MAINMEM
          RTS
-
-* get expressions into stream and X00
-parsSeek JSR   CHKOPN
-         JSR   NUMEVL
-         JSR   GETADR
-         cp16  X00;stream
-         JSR   CHKCOM
-         JSR   NUMEVL
-         JSR   GETADR
-         JSR   CHKCLS
-         RTS
-
-parsTell JSR   CHKOPN
-         JSR   PTRGET
-         LDA   VALTYP
-         BNE   :err
-         LDY   stream
-         LDA   stream+1
-         JSR   saveInt
-         JSR   CHKCOM
-         JSR   PTRGET
-         LDA   VALTYP
-         BNE   :err
-         LDA   bitPtr
-         JSR   saveByt
-         JSR   CHKCOM
-         JSR   PTRGET
-         LDA   VALTYP
-         BNE   :err
-         LDY   prod
-         LDA   prod+1
-         JSR   saveInt
-         JSR   CHKCLS
-         RTS
-:err     JMP   badTyp
-
-* save A in the last variable
-saveByt  TAY
-         LDA   #$00
-* save Y + 256*A in the last variable
-saveInt  JSR   INT2FP
-         LDX   VARPNT
-         LDY   VARPNT+1
-         JSR   MOVMF
-         RTS
-
-* push X onto cyclic stack.
-psh      LDA   stkptr
-         INC
-         AND   #%00011111
-         TAY
-         TXA
-         STA   stkdat,Y
-         STY   stkptr
-         RTS
-
-* pull from cyclic stack into A.    
-pul      LDY   stkptr
-         LDA   stkdat,Y
-         DEC   stkptr
-         BMI   :roll
-         RTS
-:roll    LDY   #%00011111
-         STY   stkptr
-         RTS
-
-illQ     LDX   #ILLQTY
-         JMP   DOERR
-
-badTyp   LDX   #BADTYP
-         JMP   DOERR
-
-* check X00,X within 560x192 DHR grid
-bound    DO    _bound
-         CPX   #$C0
-         BCS   illQ
-         FIN
-boundX   DO    _bound
-         LDA   X00+1
-         CMP   #$02
-         BCC   :ok
-         BNE   illQ
-         LDA   X00
-         CMP   #$30
-         BCS   illQ
-         FIN
-:ok      RTS
-
-* check X00,X within 40x24 text grid.
-* assumes indexing from 1.
-* this is the *only* guard for text commands.
-bndTxt   DEX
-         CPX   #$18
-         BCS   illQ
-         INX
-         LDA   X00+1
-         BNE   illQ
-         LDA   X00
-         DEC
-         CMP   #$28
-         BCS   illQ
-         INC
-         RTS
-
-* check brush in X
-bndBrsh  CPX   #maxBrsh+1
-         BCS   illQ
-         RTS
-
-* Render a binary coded drawing with offset DX,X00.
-* Execute a maximum of `countdwn` commands.
-draw     LDA   countdwn
-         BNE   :go
-         LDA   countdwn+1
-         BNE   :go
-         RTS
-:go      JSR   doDecode
-         LDA   MODE
-         AND   #%00000111
-         BEQ   :fin
-         TAX
-         ph16  DX
-         JSR   encExe
-         pl16  DX
-         dec16 countdwn
-         JMP   draw
-:fin     RTS
 
 cmosErr  JSR   BELL
          LDY   #$00
@@ -607,12 +542,16 @@ cmosErr  JSR   BELL
 
 * Table of ampersands.
 * If strings overlap, longer string must go first.
-ampTbl   ASC   'DHR',00
+ampTbl   ASC   'VERS',00
+         DA    ampVers
+         ASC   'DHR',00
          DA    ampDHR
          DFB   hcolor_t,0
          DA    ampColor
          ASC   'MODE',00
          DA    ampMode
+         ASC   'MOD',00
+         DA    ampMod
          ASC   'MOVE',00
          DA    ampMove
          DFB   hplot_t,0
@@ -623,6 +562,10 @@ ampTbl   ASC   'DHR',00
          DA    ampStrk
          ASC   'TILE',00
          DA    ampTile
+         ASC   'MAP',00
+         DA    ampMap
+         ASC   'SCROLL',00
+         DA    ampScrol
          DFB   print_t,0
          DA    ampPrint
          DFB   clear_t,0
@@ -650,6 +593,10 @@ ampTbl   ASC   'DHR',00
          ASC   'TELLG',00
          DA    ampTellg
 
+         DFB   and_t,0
+         DA    ampAnd
+         DFB   or_t,0
+         DA    ampOr
          ASC   'BIT',00
          DA    ampBit
          ASC   'PSH',00
@@ -660,14 +607,11 @@ ampTbl   ASC   'DHR',00
          HEX   00         ; end table
 
 absPtr   HEX   00,00
-countdwn HEX   00,00
+
+version  DFB   0,0,0
 
 noCMOS   ASC   "DHRLIB REQUIRES 65C02",00
 
 * bits after the command code
 cmdBits  ENT
          HEX   00,10,01,12,12,12,38,15
-
-* cyclic stack
-stkptr   HEX   00
-stkdat   DS    $20

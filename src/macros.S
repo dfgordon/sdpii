@@ -38,12 +38,11 @@ inc16    MAC
 incdone  <<<
 
 dec16    MAC
-         DEC   ]1
          LDA   ]1
-         CMP   #$FF
          BNE   cont
          DEC   ]1+1
-cont     <<<
+cont     DEC   ]1
+         <<<
 
 ph16     MAC
          LDA   ]1
@@ -68,6 +67,38 @@ add16    MAC
          ADC   ]2+1
          STA   ]2+1
          <<<
+
+ad816    MAC
+         CLC
+         LDA   ]1
+         ADC   ]2
+         STA   ]2
+         LDA   ]1
+         BMI   neg
+         LDA   ]2+1
+         ADC   #$00
+         STA   ]2+1
+         BRA   fin
+neg      LDA   ]2+1
+         ADC   #$FF
+         STA   ]2+1
+fin      <<<
+
+sb816    MAC
+         SEC
+         LDA   ]2
+         SBC   ]1
+         STA   ]2
+         LDA   ]1
+         BMI   neg
+         LDA   ]2+1
+         SBC   #$00
+         STA   ]2+1
+         BRA   fin
+neg      LDA   ]2+1
+         SBC   #$FF
+         STA   ]2+1
+fin      <<<
 
 rolClr   MAC
          LDA   clrMask1
@@ -153,7 +184,8 @@ lte8     MAC
          LDA   ]2
          CMP   ]1
          BCS   cont
-         JMP   illQ
+         LDX   #ILLQTY
+         JMP   DOERR
          FIN
 cont     <<<
 
@@ -166,7 +198,8 @@ lte16    MAC
          LDA   ]2
          CMP   ]1
          BCS   cont
-err      JMP   illQ
+err      LDX   #ILLQTY
+         JMP   DOERR
          FIN
 cont     <<<
 

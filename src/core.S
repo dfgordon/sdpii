@@ -130,7 +130,7 @@ incHor   LDA   BITPOS
 :fin     RTS
 
 * Set ROWPTR using Y0.
-* Only diff from HGR is separating out.
+* Only diff from HGR is separating and TSB.
 setVCurs ENT
          LDA   Y0
          DO    _wrap
@@ -144,8 +144,7 @@ setVCurs ENT
          STA   ROWPTR
          LSR
          LSR
-         ORA   ROWPTR
-         STA   ROWPTR
+         TSB   ROWPTR
          PLA
          STA   ROWPTR+1
          ASL
@@ -512,8 +511,7 @@ fastLn   LDA   HCOUNT
          TXA
          ASL
          TAX
-         ORA   BITPOS
-         STA   BITPOS
+         TSB   BITPOS
          BRA   :loop
 :go      JSR   plotc
          STX   BITPOS
@@ -564,85 +562,81 @@ stroke   ENT
          BRA   :nextLn
 :fin     RTS
 
-* draw tile A at X=x/14,Y=y/8, tile size <= 255
-* DRAWPTR = pointer to tile data
-* expect 0-indexing by this point
+* draw tile A at X=x/14,Y=y/8. zero-indexing.
+* DRAWPTR = pointer to tile data.
 tile     ENT
-         PHA
-         LDA   rowTbLo,Y
-         STA   ROWPTR
-         LDA   rowTbHi,Y
-         STA   ROWPTR+1
+         PHY
+         STA   fac1
          STX   COLUMN
+* setup pointer to this tile
          cp16  DRAWPTR;zptr
-
-         PLA              ; tile num
-         STA   fac1
-         LDA   (zptr)     ; col pairs
-         ASL
-         STA   fac2       ; bytes across
-         JSR   mulbb
-         LDA   prod+1
-         BEQ   :ok
-         JMP   illQ
-:ok      LDA   prod
-         STA   fac1
          LDY   #$01
          LDA   (zptr),Y
          ASL
          ASL
          ASL
-         STA   fac2       ; y pixels
-         JSR   mulbb      ; tile offset
-
+         STA   fac2       ; pixel-rows, also used later
+         JSR   mulbb      ; prod = tile*rows
          LDA   (zptr)
-         TAX
+         TAX              ; X = column pairs
+:add     DEX
+         BEQ   :dbl
+         add16 prod;prod
+         BRA   :add
+:dbl     ASL   prod
+         ROL   prod+1     ; prod = tile offset
          inc16 zptr
-         LDA   (zptr)
-         ASL
-         ASL
-         ASL
-         TAY              ; y pixels
          inc16 zptr
          add16 prod;zptr
+* init loops
+         PLY
          LDA   COLUMN
          STA   fac1
-
-:loopy   LDA   (DRAWPTR)
-         TAX
+         STZ   prod       ; normal
+         LDA   MODE
+         BPL   :iniRow
+         LDA   #$FF
+         STA   prod       ; inverse
+* loop over rows
+:iniRow  LDA   rowTbLo,Y
+         STA   ROWPTR
+         LDA   rowTbHi,Y
+:ezRow   STA   ROWPTR+1
          LDA   fac1
          STA   COLUMN
-
-:loopx   PHX
+         LDA   (DRAWPTR)
+         TAX
          PHY
-
-         STZ   AUXMEM
-:rep     LDY   COLUMN
-         LDA   (zptr)
-         LDX   MODE
-         BPL   :norm
-         EOR   #$FF
-:norm    paint
+* loop over columns
+:loopx   STZ   AUXMEM
+:rep     LDA   (zptr)
+         EOR   prod
+         LDY   COLUMN
+         paint
          inc16 zptr
          LDA   CHKAUX
          BPL   :cont
          STZ   MAINMEM
          BRA   :rep
-
-:cont    PLY
-         PLX
-         DEX
+:cont    DEX
          BEQ   :nxtRow
          INC   COLUMN
          BRA   :loopx
-:nxtRow  JSR   INCRY
-         DEY
+* prepare for next row
+:nxtRow  PLY
+         DEC   fac2
          BEQ   :fin
-         BRA   :loopy
+         CLC
+         LDA   ROWPTR+1
+         ADC   #$04
+         BIT   #$1C
+         BNE   :ezRow
+         INY
+         BRA   :iniRow
 :fin     RTS
 
-* print str with length A and ptr INDEX at X,Y.
-* destroys stat and byt.
+* print str with length A and ptr INDEX at X,Y. zero-indexing.
+* font must be 14 pixels wide.  destroys stat and byt.
 print    ENT
          STA   stat
          LDA   #$00
@@ -698,8 +692,9 @@ clear    ENT
          RTS
          
 * Multiply two bytes to get a word
-* prod = fac1 * fac2
-mulbb    STZ   prod
+* prod = fac1 * fac2, fac1 is destroyed, fac2 is preserved
+mulbb    ENT
+         STZ   prod
          STZ   prod+1
          LDX   #$08
 :loop    LSR   fac1
@@ -716,6 +711,33 @@ mulbb    STZ   prod
 
 illQ     LDX   #ILLQTY
          JMP   DOERR
+
+* Get remainder by a simple method.
+* Can be slow if numerator >> denominator.
+* prod = numerator, LE fac1,fac2 = denominator.
+* result is in prod.
+mod      ENT
+         LDA   prod+1
+         BMI   :neg
+:loop    SEC
+         LDA   prod
+         SBC   fac1
+         STA   prod
+         LDA   prod+1
+         SBC   fac2
+         STA   prod+1
+         BCS   :loop
+:add     CLC
+         LDA   prod
+         ADC   fac1
+         STA   prod
+         LDA   prod+1
+         ADC   fac2
+         STA   prod+1
+         RTS
+:neg     JSR   :add
+         BMI   :neg
+         RTS
 
 brushTbl
          HEX   00,07,10,1b,2c,41,60
@@ -753,8 +775,10 @@ dx1      DDB   0000
 dx2      DDB   0000
 
 * table of tile row addresses
-rowTbHi  HEX   202021212222232320202121222223232020212122222323
-rowTbLo  HEX   008000800080008028a828a828a828a850d050d050d050d0
+rowTbHi  ENT
+         HEX   202021212222232320202121222223232020212122222323
+rowTbLo  ENT
+         HEX   008000800080008028a828a828a828a850d050d050d050d0
 
 * table of 64 pixel bins
 * colTbl is (64*n/7)%80-1, bitTbl is 64*n%7

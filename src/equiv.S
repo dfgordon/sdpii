@@ -2,7 +2,7 @@
 
 _safe    =     0          ; protect memory
 _wrap    =     1          ; wrap cursor
-_bound   =     0          ; bounds check &s
+_bound   =     1          ; bounds check &s
 _builder =     1          ; enable pic encoding
 maxBrsh  =     7
 
@@ -13,9 +13,12 @@ hplot_t  =     147
 draw_t   =     148
 to_t     =     193
 at_t     =     197
+for_t    =     129
 step_t   =     199
 eq_t     =     208
 print_t  =     186
+and_t    =     $cd
+or_t     =     $ce
 less_t   =     $d1
 gtr_t    =     $cf
 new_t    =     $bf
@@ -26,6 +29,7 @@ stop_t   =     $b3
 clear_t  =     $bd
 
 * ZP non-overlapping (0-5 ok for temp)
+
 stream   =     $00        ; stream ptr
 lkAhed   =     $02
 lkBack   =     $03
@@ -65,7 +69,7 @@ HGRE     =     $d4        ; same, word
 HCOUNT   =     $1d        ; same, word
 MODE     =     $f9        ; drawing mode
 
-* ZP used by Applesoft
+* constants and ZP used by Applesoft
 
 ILLQTY   =     $35        ; ILLEGAL QUANTITY
 STRLNG   =     $B0        ; STRING TOO LONG

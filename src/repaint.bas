@@ -1,11 +1,11 @@
 1 himem: 9*4096: lomem: 8*4096: if peek(-1088)=234 then text: home: print chr$(7);"65C02 REQUIRED": end
-2  print chr$(4);"bload dhrlib": print chr$(4);"bload font1": print  chr$ (4);"pr#3"
-3  poke 1013,76: poke 1014,0: poke 1015,64: poke 232,0: poke 233,96: def fn mod (x) = x - de*int(x/de)
-4  a0 = 0: gosub 800: goto 850
+2  print chr$(4);"bload dhrlib": gosub 890: print chr$(4);"bload font1": print chr$(4);"pr#3"
+3  poke 1013,76: poke 1014,0: poke 1015,64: poke 232,0: poke 233,96
+4  gosub 800: & vers: &pul > vers(0): &pul > vers(1): &pul > vers(2): goto 850
 
 5 rem move cursor
 6  ds = 1: if peek(49249)>127 then ds = 8
-7  x = x - ds*(a=8) + ds*(a=21): y = y - ds*(a=11) + ds*(a=10): de = 560: x = fn mod(x): de = 192: y = fn mod(y)
+7  x = x - ds*(a=8) + ds*(a=21): y = y - ds*(a=11) + ds*(a=10): &mod(x,560): &mod(y,192)
 8  return
 
 10 rem edit prompt
@@ -17,21 +17,21 @@
 19 &print w$ at 1,24: return
 
 20 rem get upper
-21 a = peek(49152): if a<128 then 21
-22 a = a - 128: a$ = chr$(a): if a>96 then a$ = chr$(a-32)
-23 poke 49168,0: return
+21 a = peek(49152): if a < 128 then 21
+22 a = a - 128: if a > 96 then a = a - 32
+23 a$ = chr$(a): poke 49168,0: return
 
-40  TEXT : HOME : ? "SDP II Repainter v-dev": VTAB 13: &tellp(addr,bit,cnt): ? "length=";addr-a0;".";8-bit:L = 3:P = 3:W$ = "Select- ":B$ =  CHR$ (13)
-41 PN$(0) = "Load Pic":PN$(1) = "Save Pic":PN$(2) = "Edit": PN$(3) = "Exit": GOSUB 50
-42  ON M + 1 GOTO 670,600,860,870
+30  rem menu subroutine
+31 n = 0: m = 0: htab 1: vtab l: print "1) ";: inverse : print pn$(0): normal: if p > 0 then  for i = 1 to p: print i + 1;") ";pn$(i): next 
+32  htab 1: vtab l + p + 2: print w$;: gosub 20: if a =  13 or a = b then  return 
+33  if  a > 48 and  a <= 49 + p then m =  a - 49: return 
+34  if a =  8 or a =  11 then n = m: m = m - 1: if m < 0 then m = p
+35  if a =  10 or a =  21 then n = m: m = m + 1: if m > p then m = 0
+36  htab 4: vtab n + l: print pn$(n): inverse: htab 4: vtab m + l: print pn$(m): normal: goto 32
 
-50  rem menu subroutine
-51 N = 0:M = 0: HTAB 1: VTAB L: PRINT "1) ";: INVERSE : PRINT PN$(0): NORMAL : IF P > 0 THEN  FOR I = 1 TO P: PRINT I + 1;") ";PN$(I): NEXT 
-52  HTAB 1: VTAB L + P + 2: PRINT W$;: GET A$: IF A$ =  CHR$ (13) OR A$ = B$ THEN  RETURN 
-53  IF  VAL (A$) >  = 1 AND  VAL (A$) <  = P + 1 THEN M =  VAL (A$) - 1: RETURN 
-54  IF A$ =  CHR$ (8) OR A$ =  CHR$ (11) THEN N = M:M = M - 1: IF M < 0 THEN M = P
-55  IF A$ =  CHR$ (10) OR A$ =  CHR$ (21) THEN N = M:M = M + 1: IF M > P THEN M = 0
-56  HTAB 4: VTAB N + L: PRINT PN$(N): INVERSE : HTAB 4: VTAB M + L: PRINT PN$(M): NORMAL : GOTO 52
+40  text: home: ? "SDP II Repainter "vers(0)"."vers(1)"."vers(2): vtab 13: &tellp(addr,bit,cnt): ? "length=";addr-a0;".";8-bit: l = 3: p = 3: w$ = "Select- ": b = 13
+41 pn$(0) = "Load Pic":pn$(1) = "Save Pic":pn$(2) = "Edit": pn$(3) = "Exit": gosub 30
+42  on m + 1 goto 670,600,860,870
 
 60 rem edit loop
 61  gosub 20
@@ -44,12 +44,12 @@
 
 200 rem color
 201 rem user selects color command which is then replaced
-202 &seekg(a0,0): de = 8: x = 0: &psh < 0: &psh < 0
-203 &scan: &draw 1 at 0,0: &stop: cmd = fn mod(peek(249)): if cmd = 1 then 206
+202 &seekg(a0,0): x = 0: &psh < 0: &psh < 0
+203 &scan: &draw 1 at 0,0: &stop: cmd = peek(249): &mod(cmd,8): if cmd = 1 then 206
 204 if cmd = 0 then 202
 205 x = x + 1: goto 203
 206 &clear 1,24: &trap at 0,13,184 to 0,13,191: &print chr$(130) + chr$(131) + ", SPC " + str$(x) at 2,24: gosub 20: if a=32 then 211
-207 if a=21 then de=256: &psh < fn mod(x): &psh < int(x/256): de = 8: goto 205
+207 if a=21 then xlow = x: &mod(xlow,256): &psh < xlow: &psh < int(x/256): goto 205
 208 if a=27 then 1180
 209 if a=8 then &pul > x: &pul > y: x = x*256 + y: &seekg(a0,x): goto 203
 210 goto 206
@@ -62,7 +62,7 @@
 304 if a = 27 then 1180
 305 if a <> 32 then 303
 306 &seekg(a0,m1): &seekp(a0,m1): &rec: &scan: &draw m2-m1 at x-x0,y-y0: &draw 1 at 0,0
-307 de = 8: if fn mod(peek(249))=0 then &end
+307 cmd = peek(249): &mod(cmd,8): if cmd=0 then &end
 308 &stop: goto 1180
 
 600 rem save
@@ -84,12 +84,12 @@
 703  pop: print: print "canceled. ";: gosub 20: goto 40
 
 800 rem array setup
-810 dim cl(4): dim pn$(9): dim cmd$(7)
+810 dim cl(4): dim pn$(9): dim cmd$(7): dim vers(2)
 820 restore: for i = 0 to 7: read cmd$(i): next: for i = 0 to 4: cl(i) = 15: next
 840 return
 
 850 rem new pic
-851 gosub 700: x = 280: y = 80: m1 = 0: m2 = 0: pm = 0: br = 0: a0 = 81*256: &seekg(a0,0): &seekp(a0,0): poke a0,0: addr = a0: bit = 8: cnt = 0: goto 40
+851 gosub 700: x = 280: y = 80: m1 = 0: m2 = 0: pm = 0: br = 0: &seekg(a0,0): &seekp(a0,0): poke a0,0: addr = a0: bit = 8: cnt = 0: goto 40
 
 860 rem edit
 861 &dhr: poke -16302,0: &seekg(a0,0): &draw at 0,0: gosub 880: gosub 10: pr = 1: goto 60
@@ -98,8 +98,11 @@
 871 vtab 21: end
 
 880 rem sync parameters
-881 pm = 128*int(peek(249)/128): cl(2) = int(peek(28)/16): cl(1) = peek(28)-cl(2)*16: cl(4) = int(peek(228)/16): cl(3) = peek(228)-cl(4)*16
+881 pm = peek(249): &and(pm,128): cl(1) = peek(28): &and(cl(1),15): cl(2) = int(peek(28)/16): cl(3) = peek(228): &and(cl(3),15): cl(4) = int(peek(228)/16)
 882 &tellg(addr,bit,cnt): &seekp(a0,cnt): return
+
+890 rem picture workspace
+891 a0 = peek (48825) + 256 * peek (48826) + peek (48840) + 256 * peek(48841): addr = a0: bit = 8: return
 
 900 rem color picker
 901 &clear 1,24: a$ = chr$(130) + chr$(131) + ", SPC": if ci > 0 then a$ = a$ + ", TAB"
@@ -126,10 +129,9 @@
 1132 if a = 27 then 1180
 1133 goto 1120
 
-1140 &mode=128: &move to x0,y0: &draw 1 at 0,0: de = 8: cmd = fn mod(peek(249)): if cmd <> 5 then x0 = peek(224) + peek(225)*256: y0 = peek(226): rem highlight part
+1140 &mode=128: &move to x0,y0: &draw 1 at 0,0: cmd = peek(249): &mod(cmd,8): if cmd <> 5 then x0 = peek(224) + peek(225)*256: y0 = peek(226): rem highlight part
 1141 &seekg(a0,n): w$ = str$(m) + " " + str$(n) + " " + cmd$(cmd): &mode=cmd: &clear 28,24 to 32,24: &print w$ at 40-len(w$),24: return
 
 1180 &dhr: poke -16302,0: &seekg(a0,0): &draw at 0,0: gosub 880: gosub 10: return: rem cleanup and return
 
 9990 data end,clr,mod,mov,plt,lin,trp,str
- 

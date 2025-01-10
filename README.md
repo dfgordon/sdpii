@@ -1,6 +1,6 @@
 # Super Dungeon Plot II
 
-Apple II double high resolution (DHR) graphics:
+Apple II double high resolution graphics:
 
 * Assembly language library
 * Ampersand interface for Applesoft
@@ -10,7 +10,7 @@ Apple II double high resolution (DHR) graphics:
 
 ## Status
 
-Things still to be added to DHRLIB include scrolling and rendering map views.  Picture format and Applesoft `paint` are unlikely to change much.  Applesoft `repaint` and `tile` may change.
+Map encoding and scrolling is still being optimized.
 
 ## Documentation
 

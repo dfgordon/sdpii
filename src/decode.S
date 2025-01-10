@@ -22,14 +22,11 @@ seek     EXT
 * command parameters are left in ZP.
 doDecode ENT
          JSR   resmg
-         LDA   MODE
-         AND   #%11111000
-         STA   MODE
+         LDA   #%00000111
+         TRB   MODE
          LDX   #3
          JSR   rdBits
-         ORA   MODE
-         STA   MODE
-         AND   #%00000111
+         TSB   MODE
          ASL
          TAX
          JMP   (dcTable,X)
