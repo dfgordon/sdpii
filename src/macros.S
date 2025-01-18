@@ -63,7 +63,11 @@ add16    MAC
          LDA   ]1
          ADC   ]2
          STA   ]2
+         IF    #=]1
+         LDA   ]1/$100
+         ELSE
          LDA   ]1+1
+         FIN
          ADC   ]2+1
          STA   ]2+1
          <<<

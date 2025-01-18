@@ -132,6 +132,7 @@ BITTAB   =     $F5B2
 RESTART  =     $D43C
 STKINI   =     $D683
 WAITRET  =     $FD5A
+AUXMOVE  =     $C311
 
 * Soft switches
 

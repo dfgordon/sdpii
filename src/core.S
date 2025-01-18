@@ -562,34 +562,78 @@ stroke   ENT
          BRA   :nextLn
 :fin     RTS
 
-* draw tile A at X=x/14,Y=y/8. zero-indexing.
+* update zptr to the address of tile fac1.
+* X00 = column pairs, fac2 = rows, zptr = address of first tile.
+tileptr  JSR   mulbb
+         cp16  prod;glyph ; use glyph as temp
+         LDX   X00
+:add     DEX
+         BEQ   :dbl
+         add16 glyph;prod
+         BRA   :add
+:dbl     ASL   prod
+         ROL   prod+1     ; prod = tile offset
+         add16 prod;zptr
+         RTS
+
+* transfer a standard 14x8 glyph from auxiliary memory
+ldglyph  cp16  zptr;$3C
+         CLC
+         LDA   #$0F
+         ADC   $3C
+         STA   $3E
+         LDA   #$00
+         ADC   $3D
+         STA   $3F
+         mkptr glyph;$42
+         CLC
+         JSR   AUXMOVE
+         RTS
+
+* Draw tile A at X=x/14,Y=y/8. zero-indexing.
 * DRAWPTR = pointer to tile data.
+* If DRAWPTR in ZP assume a standard size font packed
+* into auxiliary memory; first 0x60 glyphs are in 0x800-0xe00,
+* any extended glyphs are in 0xbf00-0xc000; no header.
 tile     ENT
          PHY
          STA   fac1
          STX   COLUMN
 * setup pointer to this tile
-         cp16  DRAWPTR;zptr
-         LDY   #$01
-         LDA   (zptr),Y
+         LDA   DRAWPTR+1
+         BNE   :ldmain
+         STZ   zptr
+         LDA   fac1
+         CMP   #$60
+         BPL   :ext
+         LDA   #$08
+         BRA   :ldaux
+:ext     SEC
+         SBC   #$60
+         STA   fac1
+         LDA   #$BF
+:ldaux   STA   zptr+1
+         LDA   #$08
+         STA   fac2
+         LDA   #$01
+         STA   X00
+         JSR   tileptr
+         JSR   ldglyph
+         mkptr glyph;zptr
+         BRA   :iniLup
+:ldmain  cp16  DRAWPTR;zptr
+         LDA   (zptr)
+         inc16 zptr
+         STA   X00
+         LDA   (zptr)
+         inc16 zptr
          ASL
          ASL
          ASL
          STA   fac2       ; pixel-rows, also used later
-         JSR   mulbb      ; prod = tile*rows
-         LDA   (zptr)
-         TAX              ; X = column pairs
-:add     DEX
-         BEQ   :dbl
-         add16 prod;prod
-         BRA   :add
-:dbl     ASL   prod
-         ROL   prod+1     ; prod = tile offset
-         inc16 zptr
-         inc16 zptr
-         add16 prod;zptr
-* init loops
-         PLY
+         JSR   tileptr
+* tile is loaded and/or referenced
+:iniLup  PLY
          LDA   COLUMN
          STA   fac1
          STZ   prod       ; normal
@@ -604,8 +648,7 @@ tile     ENT
 :ezRow   STA   ROWPTR+1
          LDA   fac1
          STA   COLUMN
-         LDA   (DRAWPTR)
-         TAX
+         LDX   X00
          PHY
 * loop over columns
 :loopx   STZ   AUXMEM
@@ -690,7 +733,18 @@ clear    ENT
          DEC   byt
          BNE   :loopy
          RTS
-         
+
+* absolute value of accumulator
+abs8     ENT
+         ASL
+         BCC   :pos
+         ROR
+         EOR   #$FF
+         INC
+         RTS
+:pos     ROR
+         RTS
+
 * Multiply two bytes to get a word
 * prod = fac1 * fac2, fac1 is destroyed, fac2 is preserved
 mulbb    ENT
@@ -712,8 +766,45 @@ mulbb    ENT
 illQ     LDX   #ILLQTY
          JMP   DOERR
 
-* Get remainder by a simple method.
-* Can be slow if numerator >> denominator.
+* get remainder of prod/fac for u16
+* mod_u16  ENT
+*          LDA   #$00       ; lo-remainder
+*          LDY   #$00       ; hi-remainder
+*          LDX   #$10       ; bits
+* :loop    ASL   prod
+*          ROL   prod+1
+*          ROL
+*          PHA
+*          TYA
+*          ROL
+*          TAY
+*          PLA
+
+*          PHX
+*          TAX
+*          SEC
+*          SBC   fac1
+*          PHA
+*          TYA
+*          SBC   fac2
+*          PHA
+*          BCS   :reset
+*          PLA
+*          PLA
+*          TXA
+*          BRA   :cont
+* :reset   PLY
+*          PLA
+* :cont    PLX
+
+*          DEX
+*          BNE   :loop
+*          STA   prod
+*          STY   prod+1
+*          RTS
+         
+* Get remainder allowing for signed numerator by a simple method.
+* This is fast if quotient is small, slow if quotient is large.
 * prod = numerator, LE fac1,fac2 = denominator.
 * result is in prod.
 mod      ENT
@@ -785,3 +876,6 @@ rowTbLo  ENT
 * 16 bins, 1024 pixels (padded)
 colTbl   HEX   ff,08,11,1a,23,2c,35,3f,48,01,0a,13,1c,25,2f,38
 bitTbl   HEX   00,01,02,03,04,05,06,00,01,02,03,04,05,06,00,01
+
+* storage for a 14x8 glyph brought in from auxiliary memory
+glyph    DS    16

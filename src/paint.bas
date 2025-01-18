@@ -1,6 +1,6 @@
 1 himem: 9*4096: lomem: 8*4096: if peek(-1088)=234 then text: home: print chr$(7);"65C02 REQUIRED": end
-2  print chr$(4);"bload dhrlib": gosub 890: print chr$(4);"bload font1": print  chr$ (4);"pr#3"
-3  poke 1013,76: poke 1014,0: poke 1015,64: poke 232,0: poke 233,96
+2  print chr$(4);"bload dhrlib": gosub 890: poke 1013,76: poke 1014,0: poke 1015,64
+3  print chr$(4);"bload font1": print chr$(4);"pr#3": poke 232,0: poke 233,96: &aux: poke 233,0
 4  gosub 800: & vers: &pul > vers(0): &pul > vers(1): &pul > vers(2): goto 850
 
 5 rem move cursor

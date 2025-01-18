@@ -382,6 +382,31 @@ ampDraw  LDA   #at_t
          JSR   draw
          JMP   ampDone
 
+* &aux. copy 6 pages starting at (DRAWPTR),2 to aux/0x800.
+* copy 1 page starting at (DRAWPTR),$602 to aux/0xBF00.
+ampAux   cp16  DRAWPTR;zptr
+         add16 #2;zptr
+         cp16  zptr;$3C
+         cp16  zptr;$3E
+         CLC
+         ADC   #$06
+         STA   $3F
+         cp16  $3E;zptr
+         STZ   $42
+         LDA   #$08
+         STA   $43
+         SEC
+         JSR   AUXMOVE
+         cp16  zptr;$3C
+         INC   zptr+1
+         cp16  zptr;$3E
+         STZ   $42
+         LDA   #$BF
+         STA   $43
+         SEC
+         JSR   AUXMOVE
+         JMP   ampDone
+
 * &tile #A at X,Y (units of 14x8 blocks, one-indexing).
 * size of tile can be any multiple of 14x8.
 ampTile  JSR   chkPnd
@@ -409,7 +434,16 @@ ampMap   JSR   chkAt
          JSR   txtPt
          STX   X0
          STY   X0+1
-         JSR   submap
+         STZ   DX
+         STZ   DX+1
+         LDA   #step_t
+         CMP   (TXTPTR)
+         BNE   :go
+         JSR   CHRGET
+         JSR   mapPt
+         STX   DX
+         STY   DX+1
+:go      JSR   submap
          JMP   ampDone
 
 * &scroll at x1,y1 to x2,y2 step dx,dy (units of 14x8 blocks, one-indexing)
@@ -562,6 +596,8 @@ ampTbl   ASC   'VERS',00
          DA    ampStrk
          ASC   'TILE',00
          DA    ampTile
+         ASC   'AUX',00
+         DA    ampAux
          ASC   'MAP',00
          DA    ampMap
          ASC   'SCROLL',00
