@@ -4,6 +4,7 @@
 # N.b. this assumes an existing project on the emulated HD.
 
 #Requires -Version 7.4
+Set-Variable ErrorActionPreference "Stop"
 
 Set-Variable hd ($env:USERPROFILE + "\OneDrive\Documents\appleii\DISKS\microdrive-prodos-working.po")
 Set-Variable prodosPath "programming/merlin/sdpii/"

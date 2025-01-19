@@ -562,8 +562,8 @@ stroke   ENT
          BRA   :nextLn
 :fin     RTS
 
-* update zptr to the address of tile fac1.
-* X00 = column pairs, fac2 = rows, zptr = address of first tile.
+* update MVSRC to the address of tile fac1.
+* X00 = column pairs, fac2 = rows, MVSRC = address of first tile.
 tileptr  JSR   mulbb
          cp16  prod;glyph ; use glyph as temp
          LDX   X00
@@ -573,21 +573,52 @@ tileptr  JSR   mulbb
          BRA   :add
 :dbl     ASL   prod
          ROL   prod+1     ; prod = tile offset
-         add16 prod;zptr
+         add16 prod;MVSRC
          RTS
 
-* transfer a standard 14x8 glyph from auxiliary memory
-ldglyph  cp16  zptr;$3C
+* Load standard 14x8 glyph from stashed font.
+* Glyph number to load is in fac1.
+* Glyphs 0-95 are pulled from pages 8-13 of aux-memory.
+* Glyphs 96-111 are pulled from page $D0 of main-memory (bank 2).
+* `glyph` receives glyph data, `fac2` is set to 8.
+ldglyph  STZ   MVSRC
+         LDA   #$08
+         STA   MVSRC+1
+         STA   fac2
+         LDA   #$01
+         STA   X00
+         LDA   fac1
+         CMP   #$60
+         BMI   :prep      ; using aux
+         SEC              ; using bank
+         SBC   #$60
+         STA   fac1
+         LDA   #$D0
+         STA   MVSRC+1
+:prep    JSR   tileptr
          CLC
          LDA   #$0F
-         ADC   $3C
-         STA   $3E
+         ADC   MVSRC
+         STA   MVEND
          LDA   #$00
-         ADC   $3D
-         STA   $3F
-         mkptr glyph;$42
+         ADC   MVSRC+1
+         STA   MVEND+1
+         mkptr glyph;MVDST
+         LDA   MVSRC+1
+         BMI   :bank
          CLC
          JSR   AUXMOVE
+         RTS
+* loop assumes source data within page
+:bank    LDA   RDBNK2
+:loop    LDA   (MVSRC)
+         STA   (MVDST)
+         inc16 MVDST
+         LDA   MVSRC
+         CMP   MVEND
+         INC   MVSRC
+         BCC   :loop
+         LDA   RDROM
          RTS
 
 * Draw tile A at X=x/14,Y=y/8. zero-indexing.
@@ -602,36 +633,21 @@ tile     ENT
 * setup pointer to this tile
          LDA   DRAWPTR+1
          BNE   :ldmain
-         STZ   zptr
-         LDA   fac1
-         CMP   #$60
-         BPL   :ext
-         LDA   #$08
-         BRA   :ldaux
-:ext     SEC
-         SBC   #$60
-         STA   fac1
-         LDA   #$BF
-:ldaux   STA   zptr+1
-         LDA   #$08
-         STA   fac2
-         LDA   #$01
-         STA   X00
-         JSR   tileptr
          JSR   ldglyph
          mkptr glyph;zptr
          BRA   :iniLup
-:ldmain  cp16  DRAWPTR;zptr
-         LDA   (zptr)
-         inc16 zptr
+:ldmain  cp16  DRAWPTR;MVSRC
+         LDA   (MVSRC)
+         inc16 MVSRC
          STA   X00
-         LDA   (zptr)
-         inc16 zptr
+         LDA   (MVSRC)
+         inc16 MVSRC
          ASL
          ASL
          ASL
          STA   fac2       ; pixel-rows, also used later
          JSR   tileptr
+         cp16  MVSRC;zptr
 * tile is loaded and/or referenced
 :iniLup  PLY
          LDA   COLUMN

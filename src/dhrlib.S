@@ -383,28 +383,26 @@ ampDraw  LDA   #at_t
          JMP   ampDone
 
 * &aux. copy 6 pages starting at (DRAWPTR),2 to aux/0x800.
-* copy 1 page starting at (DRAWPTR),$602 to aux/0xBF00.
-ampAux   cp16  DRAWPTR;zptr
-         add16 #2;zptr
-         cp16  zptr;$3C
-         cp16  zptr;$3E
-         CLC
-         ADC   #$06
-         STA   $3F
-         cp16  $3E;zptr
-         STZ   $42
+* copy 1 page starting at (DRAWPTR),$602 to main/2/0xD000.
+ampAux   cp16  DRAWPTR;MVSRC
+         add16 #2;MVSRC
+         cp16  MVSRC;MVEND
+         add16 #$05ff;MVEND ; persistent to MEMMOV,AUXMOV
+         STZ   MVDST
          LDA   #$08
-         STA   $43
+         STA   MVDST+1
          SEC
          JSR   AUXMOVE
-         cp16  zptr;$3C
-         INC   zptr+1
-         cp16  zptr;$3E
-         STZ   $42
-         LDA   #$BF
-         STA   $43
-         SEC
-         JSR   AUXMOVE
+         cp16  MVEND;MVSRC
+         inc16 MVSRC
+         INC   MVEND+1
+         STZ   MVDST
+         LDA   #$D0
+         STA   MVDST+1
+         LDA   RDROM
+         LDA   RDROM      ; must do twice
+         LDY   #$00
+         JSR   MEMMOVE
          JMP   ampDone
 
 * &tile #A at X,Y (units of 14x8 blocks, one-indexing).

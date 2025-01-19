@@ -6,16 +6,21 @@ The version number is controlled by `scripts/meta.json`.  This is the WOZ metada
 
 As a corollary, the entire package is always synchronized under the same version number.
 
-## Auxiliary Memory
+## Bank Switching Background
 
-Since SDP II is geared toward a case where there is an Applesoft front end, we suppose a RAM disk will be utilized for swapping programs and/or variables. But even when a RAM disk is connected, we still have pockets of free space that add up to about 3.5K:
+Since SDP II is geared toward a case where there is an Applesoft front end, we suppose a RAM disk will be utilized for swapping programs and/or variables. The RAM disk uses auxiliary memory, but the following blocks remain available:
 
 * $0000 to $0200 ($80-$FF reserved)
 * $0400 to $0800 (assuming we don't need native text)
 * $0800 to $0E00
 * $BF00 to $C000 (reserved)
-* $D000 to $D100 (main memory, but bank switched)
-* Altogether that makes 14 pages, or 3584 bytes.
+
+There is also some bank-switched memory not used by ProDOS:
+
+* $D000 to $D100 (bank 2)
+* $D400 to $E000 (reserved, bank 2)
+
+Altogether that makes 26 (12.5) pages, or 6656 (3200) bytes, if reserved space is used (not used).
 
 The RAM disk is nominally 127 blocks, but only 121 are used:
 
@@ -24,7 +29,14 @@ The RAM disk is nominally 127 blocks, but only 121 are used:
 * 1 bitmap block
 * 119 user blocks
 
-As of this writing, the main use of this is to stash a font in the 6 pages from $800 - $e00, with extended characters stashed in $bf00 - $c000.
+This information comes from *Beneath Apple ProDOS*, and from experimenting with the AppleWin debugger.
+
+## Bank Switching
+
+SDP II uses auxiliary and bank-switched memory to stash a standard size (14x8) font.
+The first 96 glyphs (usually ASCII 32 - 127) are stashed in pages 8 - 13 of auxiliary memory.  Extended glyphs (up to 16) are stashed in page 208 of bank-switched memory, bank 2.
+
+DHRLIB users must issue `&aux` to stash the font, and `POKE 233,0` to use the stashed font.  If this is not done, DHRLIB can still display fonts, but they will take up space in the lower 48K of main memory.
 
 ## Memory Map
 

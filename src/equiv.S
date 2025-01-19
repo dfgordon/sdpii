@@ -86,6 +86,12 @@ TXTPTR   =     $B8
 VALTYP   =     $11        ; $00=NUM, $FF=STR
 INTFLG   =     $12        ; $00=NO, $80=YES
 
+* ZP used by monitor or firmware
+
+MVSRC    =     $3C
+MVEND    =     $3E
+MVDST    =     $42
+
 * ROM routines for parsing and variables
 
 BELL     =     $FF3A
@@ -133,6 +139,7 @@ RESTART  =     $D43C
 STKINI   =     $D683
 WAITRET  =     $FD5A
 AUXMOVE  =     $C311
+MEMMOVE  =     $FE2C
 
 * Soft switches
 
@@ -149,3 +156,5 @@ FULLSCR  =     $C052
 MAINMEM  =     $C054
 AUXMEM   =     $C055
 CHKAUX   =     $C01C
+RDBNK2   =     $C080
+RDROM    =     $C081
