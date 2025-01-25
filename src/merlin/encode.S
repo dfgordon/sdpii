@@ -9,6 +9,8 @@
          PUT   equiv
          USE   macros
 
+         DO    _pics/3
+
 * imports from BITSTREAM
 
 stBits   EXT
@@ -16,8 +18,6 @@ clsBits  EXT
 resmBits EXT
 chkpBits EXT
 seek     EXT
-
-         DO    _builder
 
 * main interface, encode command indexed by X.
 * update cmdIdx and checkpoint stream record.

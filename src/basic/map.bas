@@ -1,8 +1,8 @@
-1 himem: 8192: if peek(-1088)=234 then text: home: print chr$(7);"65C02 PROCESSOR REQUIRED": end
+1 himem: 37376: lomem: 35584: if peek(-1088)=234 then text: home: print chr$(7);"65C02 PROCESSOR REQUIRED": end
 2  def  fn gt16(addr) =  peek (addr) + 256 *  peek (addr + 1)
-4  print chr$(4);"bload dhrlib": poke 1013,76: poke 1014,0: poke 1015,64
-6  print chr$(4);"bload font1": print chr$(4);"pr#3": poke 232,0: poke 233,96: &aux 
-7 x = 40: y = 40: lx = 80: ly = 80: a0 = 7*4096: poke a0,lx: poke a0+1,ly: gosub 800
+4  print chr$(4);"bload maplib": poke 1013,76: poke 1014,0: poke 1015,64: gosub 890
+6  print chr$(4);"bload font1": print chr$(4);"pr#3": poke 232,0: poke 233,96: &aux: poke 233,0
+7 x = 40: y = 40: lx = 80: ly = 80: poke a0,lx: poke a0+1,ly: gosub 800: gosub 1300
 8 &vers: &pul > vers(0): &pul > vers(1): &pul > vers(2): goto 70
 
 10 rem tile selection, tile count of 16 is hard coded here
@@ -11,7 +11,7 @@
 13 &tile #pd at 39,21: return
 
 18 rem indefinite progress
-19 poke 233,0: &clear 1,21 to 40,24: &mode = 128: &print "Working..." at 1,21: &mode = 0: return
+19 &clear 1,21 to 40,24: &mode = 128: &print "Working..." at 1,21: &mode = 0: return
 
 20 rem get upper
 21 a = peek(49152): if a < 128 then 21
@@ -27,11 +27,11 @@
 36  htab 4: vtab n + l: print pn$(n): inverse: htab 4: vtab m + l: print pn$(m): normal: goto 32
 
 60 rem edit prompt
-61 poke 233,0: &clear 1,21 to 40,24
+61 &clear 1,21 to 40,24
 62 &print chr$(128) + chr$(129) + "SPC=place, `=prev, TAB=next" at 1,21
 63 &print chr$(128) + chr$(129) + chr$(132) + "=move, ESC=menu" at 1,22
 64 rem coords
-65 w$ = "  " + str$(x) + "," + str$(y): &tile #pd at 39,21: poke 233,0: &print w$ at 41-len(w$),24: poke 233,96: i = fre(0): return
+65 w$ = "  " + str$(x) + "," + str$(y): &tile #pd at 39,21: &print w$ at 41-len(w$),24: i = fre(0): return
 
 70  text : home : print "SDP II Mapper "vers(0)"."vers(1)"."vers(2): vtab 13: print "size=";lx;",";ly: l = 3: p = 6: w$ = "Select- ": b = 13
 71 pn$(0) = "New Map": pn$(1) = "Load Tiles": pn$(2) = "Load Map": pn$(3) = "Save Map": pn$(4) = "Edit": pn$(5) = "Catalog": pn$(6) = "Exit": gosub 30
@@ -46,9 +46,9 @@
 86  goto 80
 
 90 rem scroll map
-91  ds = 1 + (peek(49249)>127)*2: p = a0 + 2 + x + y*lx: if peek (49250)>127 then poke p,pd
+91  ds = 1 + (peek(49249)>127)*3: p = a0 + 2 + x + y*lx: if peek (49250)>127 then poke p,pd
 92  dx = ds*((a = 21) - (a = 8)): dy = ds*((a = 10) - (a = 11)): x = x + dx: y = y + dy: &mod(x,lx): &mod(y,ly)
-96  poke 0,0: poke 1,a0/256: rem if ds = 1 then 150
+96  poke 0,a1lo: poke 1,a2hi: rem if ds = 1 then 150
 99  &map at x-6,y-4 to x+6,y+4 at 1,1: &tile #15 at 13,9: gosub 64: return
 
 100 rem place tile(s)
@@ -69,23 +69,36 @@
 400 rem init map
 410  home: input "map columns: ";lx: IF lx < 1 OR lx>128 THEN 410
 420  input "map rows: ";ly: if ly<1 or ly>128 then 420
-430  poke a0,lx: poke a0+1,ly: for addr = a0+2 to a0+2+lx*ly: poke addr,0: next: goto 70
+421  input "starting tile: ";a: if a<0 or a>47 then 421
+422  poke a0,lx: poke a0+1,ly: x = a0 + 2: y = x + lx*ly - 1
+423  if y >= 35584 then print chr$(7);"not enough workspace": get a$: goto 410
+430  print "fill first page...": for addr = x to x + 255: poke addr,a: next: a = 2: addr = addr - 256
+431  htab 1: vtab 5: print "copy to page ";a
+432  poke 60,addr - 256*int(addr/256): poke 61,int(addr/256): addr = addr + 255
+433  poke 62,addr - 256*int(addr/256): poke 63,int(addr/256): poke 66,peek(60): poke 67,peek(61)+1: addr = addr + 1
+434  call 768: if addr + 256 + 255 > y then 440
+435  a = a + 1: goto 431
+440 if addr + 255 = y then 70
+441 print "fill remainder...": x = addr + 256: a = peek(addr-1): for addr = x to y: poke addr,a: next: goto 70
 
 450 rem load tiles
 460  home: input "tile path: ";a$
 461  onerr goto 1049
-462  print chr$(4);"bload ";a$;",a$6000"
+462  print chr$(4);"bload ";a$;",a$6000": poke 233,96: &bank: poke 233,0 
 463  tiles = 1: poke 216,0: goto 70
 
 500 rem load map
 501  home: input "map path: ";a$
 502  onerr goto 1049
-503  print chr$(4);"bload ";a$;",a$7000": lx = peek(a0): ly = peek(a0+1)
+503  print chr$(4);"bload ";a$;",a";a0: lx = peek(a0): ly = peek(a0+1)
 508  poke 216,0: goto 70
 
 800 rem arrays
 810  dim pn$(9): dim vers(2)
 820  return
+
+890 rem map workspace
+891 a0 = peek (48825) + 256 * peek (48826) + peek (48840) + 256 * peek(48841): a1lo = a0: &mod(a1lo,256): a2hi = int(a0/256): return
 
 1000 rem save map
 1010 home: input "save path: ";a$
@@ -109,4 +122,5 @@
 1200 rem quit
 1210 home: vtab 21: end
 
-
+1300 rem setup move memory call
+1310 poke 768,160: poke 769,0: poke 770,32: poke 771,44: poke 772,254: poke 773,96: return

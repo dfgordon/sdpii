@@ -1,4 +1,4 @@
-# Ancillary Notes
+# Notes
 
 ## Version
 
@@ -33,43 +33,66 @@ This information comes from *Beneath Apple ProDOS*, and from experimenting with 
 
 ## Bank Switching
 
-SDP II uses auxiliary and bank-switched memory to stash a standard size (14x8) font.
+SDP II uses auxiliary and bank-switched memory to stash a standard size (14x8) font, and a standard size (28x16) map set, without compromising the RAM disk.  The auxiliary stack provides a "cyclic stack" accessible from Applesoft.
+
+### Stashed Font
+
 The first 96 glyphs (usually ASCII 32 - 127) are stashed in pages 8 - 13 of auxiliary memory.  Extended glyphs (up to 16) are stashed in page 208 of bank-switched memory, bank 2.
 
 DHRLIB users must issue `&aux` to stash the font, and `POKE 233,0` to use the stashed font.  If this is not done, DHRLIB can still display fonts, but they will take up space in the lower 48K of main memory.
+
+### Stashed Map Set
+
+Up to 48 map tiles can be stored in pages 212 - 223 of bank 2.  The displaced memory can be saved for later restoration.
+
+DHRLIB users must issue `&bank` to stash the tiles, and `POKE 233,0` to use the stashed tiles.  If this is not done, DHRLIB can still render maps, but the tiles will take up space in the lower 48K of main memory.
+
+### Cyclic Stack
+
+The `&psh` and `&pul` ampersands allow byte-values to be pushed onto, and pulled from, the auxiliary stack page.  The "stack" wraps around when it hits the storage boundary (usually the full page).
 
 ## Memory Map
 
 As of this writing `paint` and `repaint` use the following memory map:
 
-Range | Usage
-------|------
-$0801 - $2000 | Program
-$2000 - $4000 | Screen buffer
-$4000 - $5XXX | DHRLIB
-$5XXX - $8000 | Picture workspace
-$8000 - himem | Variables
+Bank | Range | Usage
+-----|------|------
+main | $0801 - $2000 | Program
+main | $2000 - $4000 | Screen buffer
+main | $4000 - $5XXX | DHRLIB
+main | $5XXX - $8000 | Picture workspace
+main | $8000 - $9000 | Variables
+aux | $0800 - $0E00 | ASCII Glyphs
+bank2 | $D000-$D100 | Extended glyphs
 
 The picture workspace is dynamically allocated based on the actual size of DHRLIB.
 
 The memory map used by `tile` is:
 
-Range | Usage
-------|------
-$0801 - $2000 | Program and variables
-$2000 - $4000 | Screen buffer
-$4000 - $6000 | DHRLIB + free space
-$6000 - himem | Tile workspace
+Bank | Range | Usage
+-----|------|------
+main | $0801 - $2000 | Program
+main | $2000 - $4000 | Screen buffer
+main | $4000 - $6000 | DHRLIB + free space
+main | $6000 - $8000 | Tile workspace
+main | $8000 - $9000 | Variables
+aux | $0800 - $0E00 | ASCII Glyphs
+bank2 | $D000-$D100 | Extended glyphs
 
 The memory map used by `map` is:
 
-Range | Usage
-------|------
-$0801 - $2000 | Program and variables
-$2000 - $4000 | Screen buffer
-$4000 - $6000 | DHRLIB + free space
-$6000 - $7000 | Tiles + free space
-$7000 - himem | Map workspace
+Bank | Range | Usage
+-----|------|------
+main | $0801 - $2000 | Program
+main | $2000 - $4000 | Screen buffer
+main | $4000 - $4XXX | MAPLIB
+main | $4XXX - $8B00 | Map workspace
+main | $8B00 - $9200 | Variables
+aux | $0800 - $0E00 | ASCII Glyphs
+bank2 | $D000-$D100 | Extended glyphs
+bank2 | $D400-$E000 | Tiles 
+
+The map workspace is dynamically allocated based on the actual size of MAPLIB.  MAPLIB is a paired down DHRLIB.
 
 ### Minifier
 

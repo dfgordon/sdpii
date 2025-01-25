@@ -8,6 +8,10 @@
          PUT   equiv
          USE   macros
 
+* cyclic stack info.  The stack data goes on the auxiliary stack.
+stkptr   HEX   00         ; pointer to current stack data
+stkmask  DFB   %11111111  ; control how much of page is used
+
 * parse (address,op-count) into (stream,X00)
 parsSeek ENT
          JSR   CHKOPN
@@ -183,24 +187,24 @@ bndBrsh  ENT
 psh      ENT
          LDA   stkptr
          INC
-         AND   #%00011111
+         AND   stkmask
          TAY
          TXA
-         STA   stkdat,Y
+         STA   ALTZP
+         STA   $0100,Y
+         STA   MAINZP
          STY   stkptr
          RTS
 
-* pull from cyclic stack into A.    
+* pull from cyclic stack into X.    
 pul      ENT
          LDY   stkptr
-         LDA   stkdat,Y
-         DEC   stkptr
-         BMI   :roll
+         STA   ALTZP
+         LDA   $0100,Y
+         STA   MAINZP
+         TAX
+         DEY
+         TYA
+         AND   stkmask
+         STA   stkptr
          RTS
-:roll    LDY   #%00011111
-         STY   stkptr
-         RTS
-
-* cyclic stack
-stkptr   HEX   00
-stkdat   DS    $20

@@ -18,13 +18,67 @@
 * clrMask2 - odd row pattern
 * We re-use some of the HGR cursor locations.
 
+* table of tile row addresses
+rowTbHi  ENT
+         HEX   202021212222232320202121222223232020212122222323
+rowTbLo  ENT
+         HEX   008000800080008028a828a828a828a850d050d050d050d0
+
+         DO    _tile/2
+* storage for a 14x8 glyph brought in from auxiliary memory
+glyph    DS    16
+         FIN
+
+         DO    _pics
+
+* table of 64 pixel bins
+* colTbl is (64*n/7)%80-1, bitTbl is 64*n%7
+* 16 bins, 1024 pixels (padded)
+colTbl   HEX   ff,08,11,1a,23,2c,35,3f,48,01,0a,13,1c,25,2f,38
+bitTbl   HEX   00,01,02,03,04,05,06,00,01,02,03,04,05,06,00,01
+
+brushTbl
+         HEX   00,07,10,1b,2c,41,60
+brushes
+         HEX   03
+         HEX   000000
+         HEX   040404
+         HEX   04
+         HEX   00000000
+         HEX   08080808
+         HEX   05
+         HEX   0100000001
+         HEX   0a0c0c0c0a
+         HEX   08
+         HEX   0301000000000103
+         HEX   0c1012121212100c
+         HEX   0a
+         HEX   05020100000000010205
+         HEX   0e14161818181816140e
+         HEX   0f
+         HEX   090604020100000000000102040609
+         HEX   12181c2022242424242422201c1812
+         HEX   14
+         HEX   0e0a070503020100000000000001020305070a0e
+         HEX   141c22262a2c2e3030303030302e2c2a26221c14
+
+* trapezoid advance
+hgre1    DDB   0000
+hgre2    DDB   0000
+count1   DDB   0000
+count2   DDB   0000
+quad1    DFB   00
+quad2    DFB   00
+dx1      DDB   0000
+dx2      DDB   0000
+
 * Use X0 to get COLUMN, BITPOS, clrMask1, clrMask2,
 * Pretty wrapping works for -1024<=X0<1024.
 * Wrapping constrains cursor to screen buffer for any X0.
 * Optimization is to split into 64-pix bins.
 setHCurs ENT
          phX0
-         DO    _wrap
+         DO    _wrap*_pics
          LDA   X0+1
          BPL   :pos
          EOR   #$FF
@@ -55,7 +109,7 @@ setHCurs ENT
          BCS   :sb7
          TAX
          plX0
-         DO    _wrap
+         DO    _wrap*_pics
          BPL   :pos2
          TXA
          EOR   #$FF
@@ -71,7 +125,7 @@ setHCurs ENT
          STA   clrMask2
          STY   COLUMN
          wrap80
-         DO    _wrap
+         DO    _wrap*_pics
          LDA   X0+1
          BPL   :pos3
          SEC
@@ -130,36 +184,53 @@ incHor   LDA   BITPOS
 :fin     RTS
 
 * Set ROWPTR using Y0.
-* Only diff from HGR is separating and TSB.
 setVCurs ENT
          LDA   Y0
-         DO    _wrap
+         DO    _wrap*_pics
          CMP   #$C0
          BCC   :ok
          SEC
          SBC   #$C0
          FIN
 :ok      PHA
-         AND   #%11000000
+         LSR
+         LSR
+         LSR
+         TAY
+         LDA   rowTbLo,Y
          STA   ROWPTR
-         LSR
-         LSR
-         TSB   ROWPTR
+         LDA   rowTbHi,Y
+         STA   ROWPTR+1
          PLA
-         STA   ROWPTR+1
+         AND   #%00000111
          ASL
          ASL
-         ASL
-         ROL   ROWPTR+1
-         ASL
-         ROL   ROWPTR+1
-         ASL
-         ROR   ROWPTR
-         LDA   ROWPTR+1
-         AND   #%00011111
          ORA   PAGE
-         STA   ROWPTR+1
+         TSB   ROWPTR+1
          RTS
+*  PHA
+*  AND   #%11000000
+*  STA   ROWPTR
+*  LSR
+*  LSR
+*  TSB   ROWPTR
+*  PLA
+*  STA   ROWPTR+1
+*  ASL
+*  ASL
+*  ASL
+*  ROL   ROWPTR+1
+*  ASL
+*  ROL   ROWPTR+1
+*  ASL
+*  ROR   ROWPTR
+*  LDA   ROWPTR+1
+*  AND   #%00011111
+*  ORA   PAGE
+*  STA   ROWPTR+1
+*  RTS
+
+         FIN
 
 * Initialize double hi-res and DHRLIB.
 * Assumes PR#3 already done.
@@ -185,9 +256,13 @@ dhrInit  ENT
          STA   CLRBAS2
          LDA   #$20
          STA   PAGE
+         DO    _pics
          JSR   setHCurs
          JSR   setVCurs
+         FIN
          RTS
+
+         DO    _pics
 
 * Set color mask at ZP address Y to A + X*16.
 * If X>15 or A>15 throw error.
@@ -562,6 +637,10 @@ stroke   ENT
          BRA   :nextLn
 :fin     RTS
 
+         FIN
+
+         DO    _tile/2
+
 * update MVSRC to the address of tile fac1.
 * X00 = column pairs, fac2 = rows, MVSRC = address of first tile.
 tileptr  JSR   mulbb
@@ -577,10 +656,11 @@ tileptr  JSR   mulbb
          RTS
 
 * Load standard 14x8 glyph from stashed font.
+* Assumes we are set to read bank 2.
 * Glyph number to load is in fac1.
 * Glyphs 0-95 are pulled from pages 8-13 of aux-memory.
 * Glyphs 96-111 are pulled from page $D0 of main-memory (bank 2).
-* `glyph` receives glyph data, `fac2` is set to 8.
+* `glyph` receives glyph data, `fac2` set to 8, `X00` set to 1.
 ldglyph  STZ   MVSRC
          LDA   #$08
          STA   MVSRC+1
@@ -610,7 +690,7 @@ ldglyph  STZ   MVSRC
          JSR   AUXMOVE
          RTS
 * loop assumes source data within page
-:bank    LDA   RDBNK2
+:bank
 :loop    LDA   (MVSRC)
          STA   (MVDST)
          inc16 MVDST
@@ -618,26 +698,30 @@ ldglyph  STZ   MVSRC
          CMP   MVEND
          INC   MVSRC
          BCC   :loop
-         LDA   RDROM
          RTS
 
 * Draw tile A at X=x/14,Y=y/8. zero-indexing.
 * DRAWPTR = pointer to tile data.
-* If DRAWPTR in ZP assume a standard size font packed
-* into auxiliary memory; first 0x60 glyphs are in 0x800-0xe00,
-* any extended glyphs are in 0xbf00-0xc000; no header.
+* If DRAWPTR in ZP, assume packed tiles, with header.
+* If DRAWPTR in page 8, assume a packed font, no header.
 tile     ENT
          PHY
          STA   fac1
          STX   COLUMN
+         LDA   RDBNK2
 * setup pointer to this tile
          LDA   DRAWPTR+1
-         BNE   :ldmain
-         JSR   ldglyph
+         BEQ   :ldbank
+         CMP   #$08
+         BEQ   :ldglyph
+         cp16  DRAWPTR;MVSRC
+         BRA   :offset
+:ldbank  mkptr $D400;MVSRC
+         BRA   :offset
+:ldglyph JSR   ldglyph
          mkptr glyph;zptr
          BRA   :iniLup
-:ldmain  cp16  DRAWPTR;MVSRC
-         LDA   (MVSRC)
+:offset  LDA   (MVSRC)
          inc16 MVSRC
          STA   X00
          LDA   (MVSRC)
@@ -692,13 +776,21 @@ tile     ENT
          BNE   :ezRow
          INY
          BRA   :iniRow
-:fin     RTS
+:fin     LDA   RDROM
+         RTS
 
 * print str with length A and ptr INDEX at X,Y. zero-indexing.
 * font must be 14 pixels wide.  destroys stat and byt.
 print    ENT
          STA   stat
-         LDA   #$00
+         LDA   DRAWPTR+1
+         BNE   :go
+         LDA   #$08
+         STA   DRAWPTR+1
+         JSR   :go
+         STZ   DRAWPTR+1
+         RTS
+:go      LDA   #$00
          STA   byt
 :loop    PHY
          LDY   byt
@@ -749,6 +841,8 @@ clear    ENT
          DEC   byt
          BNE   :loopy
          RTS
+
+         FIN
 
 * absolute value of accumulator
 abs8     ENT
@@ -845,53 +939,3 @@ mod      ENT
 :neg     JSR   :add
          BMI   :neg
          RTS
-
-brushTbl
-         HEX   00,07,10,1b,2c,41,60
-brushes
-         HEX   03
-         HEX   000000
-         HEX   040404
-         HEX   04
-         HEX   00000000
-         HEX   08080808
-         HEX   05
-         HEX   0100000001
-         HEX   0a0c0c0c0a
-         HEX   08
-         HEX   0301000000000103
-         HEX   0c1012121212100c
-         HEX   0a
-         HEX   05020100000000010205
-         HEX   0e14161818181816140e
-         HEX   0f
-         HEX   090604020100000000000102040609
-         HEX   12181c2022242424242422201c1812
-         HEX   14
-         HEX   0e0a070503020100000000000001020305070a0e
-         HEX   141c22262a2c2e3030303030302e2c2a26221c14
-
-* trapezoid advance
-hgre1    DDB   0000
-hgre2    DDB   0000
-count1   DDB   0000
-count2   DDB   0000
-quad1    DFB   00
-quad2    DFB   00
-dx1      DDB   0000
-dx2      DDB   0000
-
-* table of tile row addresses
-rowTbHi  ENT
-         HEX   202021212222232320202121222223232020212122222323
-rowTbLo  ENT
-         HEX   008000800080008028a828a828a828a850d050d050d050d0
-
-* table of 64 pixel bins
-* colTbl is (64*n/7)%80-1, bitTbl is 64*n%7
-* 16 bins, 1024 pixels (padded)
-colTbl   HEX   ff,08,11,1a,23,2c,35,3f,48,01,0a,13,1c,25,2f,38
-bitTbl   HEX   00,01,02,03,04,05,06,00,01,02,03,04,05,06,00,01
-
-* storage for a 14x8 glyph brought in from auxiliary memory
-glyph    DS    16

@@ -24,6 +24,7 @@ abs8     EXT
 rowTbHi  EXT
 rowTbLo  EXT
 
+         DO    _tile
 begMVw   DFB   0,0        ; start of view in map coords
 endMVw   DFB   0,0        ; end of view in map coords
 endMap   DFB   0,0        ; end of all map data
@@ -31,6 +32,7 @@ endScrn  DFB   0,0        ; end of view in screen coords
 colCount DFB   0
 rowCount DFB   0
 rowAdv   DA    0
+         FIN
 
 paint14  MAC
          STZ   AUXMEM
@@ -52,15 +54,21 @@ scroll14 MAC
          STA   (ROWPTR),Y
          <<<
 
+         DO    _tile/3
+
 * draw tile A at X=x/14,Y=y/8, 0-indexed.
 * optimized version of core::tile, only works for 28x16 tiles.
 * DRAWPTR = pointer to tile data.  zptr,prod,ROWPTR modified.
+* If DRAWPTR in ZP use stashed tiles in bank 2.
 * Returns starting X in COLUMN.
 fstTile  STX   COLUMN
          STA   prod
          STZ   prod+1
+         LDA   RDBNK2
          cp16  DRAWPTR;zptr
-         LUP   6
+         BNE   :offset
+         mkptr $D400;zptr
+:offset  LUP   6
          ASL   prod
          ROL   prod+1
          --^
@@ -87,7 +95,8 @@ fstTile  STX   COLUMN
          BNE   :nxtRow
          INY
          BRA   :iniRow
-:fin     RTS
+:fin     LDA   RDROM
+         RTS
 
 * Draw map row starting at (stream) for colCount columns at X,Y.
 * It is OK if (stream) points to a ghost cell.
@@ -109,6 +118,10 @@ mkrow    STY   byt
          DEC   colCount
          BNE   :loop
          RTS
+
+         FIN
+
+         DO    _tile
 
 * move one row of 14x8 blocks via in-place copy.
 * X0,Y is the starting block coordinate.
@@ -167,6 +180,10 @@ mvrow    LDA   rowTbLo,Y
          BRA   :prow
 :fin     RTS
 
+         FIN
+
+         DO    _tile/3
+
 * Prepare to render a map view from x1,x1+1 to x2,x2+1,
 * starting at screen cell X0,X0+1 (14x8 blocks, 0-based).
 * Advances stream to the upper-left cell in the view.
@@ -175,6 +192,7 @@ mvrow    LDA   rowTbLo,Y
 inimap   LDA   (stream)
          STA   endMap
          STA   rowAdv
+         STZ   rowAdv+1
          STA   fac1
          inc16 stream
          LDA   (stream)
@@ -193,7 +211,13 @@ inimap   LDA   (stream)
          add16 prod;stream
 :horadj  ad816 x1;stream
          ad816 x1;rowAdv
-         sb816 x2;rowAdv
+         SEC
+         LDA   rowAdv
+         SBC   x2
+         STA   rowAdv
+         LDA   rowAdv+1
+         SBC   #$00
+         STA   rowAdv+1
          cp16  x1;begMVw
          cp16  x2;endMVw
          SEC
@@ -226,13 +250,13 @@ inirow
          ADC   x1+1       ; A = vertical map coord
          BMI   :allout
          CMP   endMap+1
-         BPL   :allout
+         BCS   :allout
          LDA   x1
          BMI   :lout
          LDA   x2
          DEC
          CMP   endMap
-         BPL   :rout
+         BCS   :rout
          RTS
 :lout    SEC
          ROL   fac1
@@ -307,6 +331,9 @@ mvmap    LDA   DX+1
          BPL   :loop
          RTS
 
+         FIN
+
+         DO    _tile
 
 * Scroll in window from x1,x1+1 to x2,x2+1 by DX,DX+1 (14x8 blocks).
 * DX,DX+1 are offsets to the *source* memory.
@@ -343,3 +370,5 @@ scroll   ENT
          BEQ   :fin
          BRA   :rowLup
 :fin     RTS
+
+         FIN

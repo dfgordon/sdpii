@@ -9,6 +9,8 @@
          PUT   equiv
          USE   macros
 
+         DO    _pics/2
+
 * imports from BITSTREAM
 
 rdBits   EXT
@@ -170,3 +172,5 @@ decoder  ENT
 cmdIdx   HEX   00,00
 
 dcTable  DA    dcEnd,dcColor,dcMode,dcPlot,dcPlot,dcLineTo,dcTrap,dcStroke
+
+         FIN

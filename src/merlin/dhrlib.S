@@ -31,18 +31,22 @@
 
 * imports from CORE
 
+dhrInit  EXT
+         DO    _pics
 setHCurs EXT
 setVCurs EXT
-dhrInit  EXT
 setClr   EXT
 plot     EXT
 plotc    EXT
 lineTo   EXT
 stroke   EXT
 trap     EXT
+         FIN
+         DO    _tile/2
 tile     EXT
 print    EXT
 clear    EXT
+         FIN
 mod      EXT
 
 * imports from PARSE
@@ -61,16 +65,23 @@ saveInt  EXT
 psh      EXT
 pul      EXT
 
-* imports from DRAW
-
-encExe   EXT
-draw     EXT
-countdwn EXT
-
 * imports from MAP
 
+         DO    _tile/3
 submap   EXT
+         FIN
+         DO    _tile
 scroll   EXT
+         FIN
+
+* imports from DRAW
+
+encExe   EXT              ; always need
+
+         DO    _pics/2
+
+draw     EXT
+countdwn EXT
 
 * imports from DECODE
 
@@ -81,6 +92,10 @@ resmg    EXT
 chkpg    EXT
 doDecode EXT
 
+         FIN
+
+         DO    _pics/3
+
 * imports from ENCODE
 
 encoder  EXT
@@ -89,6 +104,8 @@ tellp    EXT
 resmp    EXT
 chkpp    EXT
 doEncode EXT
+
+         FIN
 
 * Main Ampersand dispatcher
 * KEEP THIS AS THE FIRST ADDRESSABLE ITEM
@@ -220,6 +237,7 @@ ampPl    JSR   chkGtr
          LDA   VALTYP
          BNE   :err
          JSR   pul
+         TXA
          JSR   saveByt
          JMP   ampDone
 :err     LDX   #BADTYP
@@ -227,6 +245,26 @@ ampPl    JSR   chkGtr
 
 * &dhr
 ampDHR   JSR   dhrInit
+         JMP   ampDone
+
+* &mode=x
+ampMode  JSR   chkEq
+         JSR   GETBYT
+         STX   MODE
+         LDX   #2
+         JSR   encExe
+         JMP   ampDone
+
+         DO    _pics
+
+* &move to x,y
+ampMove  JSR   chkTo
+         JSR   GETNUM
+         JSR   bound
+         STX   Y0
+         cp16  X00;X0
+         LDX   #3
+         JSR   encExe
          JMP   ampDone
 
 * &hcolor = c1[,c2,c3,c4]
@@ -256,23 +294,6 @@ ampColor JSR   GETBYT
          LDY   #CLRBAS2
          JSR   setClr
          LDX   #1
-         JSR   encExe
-         JMP   ampDone
-
-* &mode=x
-ampMode  JSR   chkEq
-         JSR   GETBYT
-         STX   MODE
-         LDX   #2
-         JSR   encExe
-         JMP   ampDone
-
-ampMove  JSR   chkTo
-         JSR   GETNUM
-         JSR   bound
-         STX   Y0
-         cp16  X00;X0
-         LDX   #3
          JSR   encExe
          JMP   ampDone
 
@@ -359,6 +380,10 @@ ampStrk  JSR   chkPnd
          JSR   encExe
          JMP   ampDone
 
+         FIN
+
+         DO    _pics/2
+         
 * &draw [n] at dx,dy.
 * cannot bounds check at this level.
 * dx,dy are treated as int16.
@@ -381,6 +406,10 @@ ampDraw  LDA   #at_t
          JSR   GETADR     ; use X00 for 16 bit DY
          JSR   draw
          JMP   ampDone
+
+         FIN
+
+         DO    _tile/2
 
 * &aux. copy 6 pages starting at (DRAWPTR),2 to aux/0x800.
 * copy 1 page starting at (DRAWPTR),$602 to main/2/0xD000.
@@ -416,18 +445,48 @@ ampTile  JSR   chkPnd
          JSR   tile
          JMP   ampDone
 
+         FIN
+
+         DO    _tile/3
+
+* &aux.
+* swap 12 pages starting at DRAWPTR with $D400-$E000, bank 2.
+ampBank  cp16  DRAWPTR;MVSRC
+         mkptr $D400;MVDST
+         LDA   RWBNK2
+         LDA   RWBNK2     ; do it twice
+:loop    LDA   (MVSRC)
+         TAX
+         LDA   (MVDST)
+         TAY
+         TXA
+         STA   (MVDST)
+         TYA
+         STA   (MVSRC)
+         inc16 MVSRC
+         inc16 MVDST
+         LDA   MVDST+1
+         CMP   #$E0
+         BCC   :loop
+         LDA   RDROM
+         RTS
+
 * &map at x1,y1 to x2,y2 at x,y [step dx,dy]
 * x,y are where to start on the screen in units of 14x8 blocks, one-indexed.
-* x1,y1 and x2,y2 define the submap, need not be positive or in bounds.
-* if dx,dy are provided use scroll methodology.
+* x1,y1 and x2,y2 define the submap.
+* x1,y1 should be in [-128,127].  x2,y2 should be in [0,255].
+* Submap can be partially out of bounds, but not completely out of bounds.
+* dx,dy are cell offsets, if provided use scroll methodology.
 ampMap   JSR   chkAt
          JSR   mapPt
          STX   x1
          STY   x1+1
          JSR   chkTo
-         JSR   mapPt
+         JSR   GETBYT
          STX   x2
-         STY   x2+1
+         JSR   CHKCOM
+         JSR   GETBYT
+         STX   x2+1
          JSR   chkAt
          JSR   txtPt
          STX   X0
@@ -444,6 +503,10 @@ ampMap   JSR   chkAt
 :go      JSR   submap
          JMP   ampDone
 
+         FIN
+
+         DO    _tile
+
 * &scroll at x1,y1 to x2,y2 step dx,dy (units of 14x8 blocks, one-indexing)
 ampScrol JSR   chkAt
          JSR   txtPt
@@ -459,6 +522,10 @@ ampScrol JSR   chkAt
          STY   DX+1
          JSR   scroll
          JMP   ampDone
+
+         FIN
+
+         DO    _tile/2
 
 * &print sexpr at X,Y (units of 14x8 tiles, one-indexing)
 ampPrint JSR   FRMEVL
@@ -504,6 +571,10 @@ ampClear JSR   txtPt
          BPL   :loop
          JMP   ampDone
 
+         FIN
+
+         DO    _pics/2
+
 * &seekg(address,commands)
 ampSeekg JSR   parsSeek
          JSR   seekg
@@ -518,7 +589,9 @@ ampTellg JSR   resmg
          JSR   chkpg
          JMP   ampDone
 
-         DO    _builder
+         FIN
+
+         DO    _pics/3
 
 * &seekp(address,commands)
 ampSeekp JSR   parsSeek
@@ -573,17 +646,19 @@ cmosErr  JSR   BELL
          JMP   RESTART
 
 * Table of ampersands.
-* If strings overlap, longer string must go first.
+* If one is a left-substring of another, longer string must go first.
+* Whenever one is added put it here alphabetically and check:
+* AUX,BANK,BIT,DHR,MAP,MOD,MODE,MOVE,PSH,PUL,REC,SCAN,SEEKG,SEEKP,SCROLL,STROKE,TELLG,TELLP,TRAP,TILE,VERS
 ampTbl   ASC   'VERS',00
          DA    ampVers
          ASC   'DHR',00
          DA    ampDHR
-         DFB   hcolor_t,0
-         DA    ampColor
          ASC   'MODE',00
          DA    ampMode
-         ASC   'MOD',00
-         DA    ampMod
+
+         DO    _pics
+         DFB   hcolor_t,0
+         DA    ampColor
          ASC   'MOVE',00
          DA    ampMove
          DFB   hplot_t,0
@@ -592,22 +667,18 @@ ampTbl   ASC   'VERS',00
          DA    ampTrap
          ASC   'STROKE',00
          DA    ampStrk
-         ASC   'TILE',00
-         DA    ampTile
-         ASC   'AUX',00
-         DA    ampAux
-         ASC   'MAP',00
-         DA    ampMap
-         ASC   'SCROLL',00
-         DA    ampScrol
-         DFB   print_t,0
-         DA    ampPrint
-         DFB   clear_t,0
-         DA    ampClear
+         FIN
+
+         DO    _pics/2
          DFB   draw_t,0
          DA    ampDraw
+         ASC   'SEEKG',00
+         DA    ampSeekg
+         ASC   'TELLG',00
+         DA    ampTellg         
+         FIN         
 
-         DO    _builder
+         DO    _pics/3
          DFB   end_t,0
          DA    ampEnd
          ASC   'REC',00
@@ -621,12 +692,32 @@ ampTbl   ASC   'VERS',00
          ASC   'TELLP',00
          DA    ampTellp
          FIN
-         
-         ASC   'SEEKG',00
-         DA    ampSeekg
-         ASC   'TELLG',00
-         DA    ampTellg
 
+         DO    _tile
+         ASC   'SCROLL',00
+         DA    ampScrol         
+         FIN
+
+         DO    _tile/2
+         ASC   'TILE',00
+         DA    ampTile
+         ASC   'AUX',00
+         DA    ampAux
+         DFB   print_t,0
+         DA    ampPrint
+         DFB   clear_t,0
+         DA    ampClear
+         FIN
+
+         DO    _tile/3
+         ASC   'BANK',00
+         DA    ampBank
+         ASC   'MAP',00
+         DA    ampMap
+         FIN
+
+         ASC   'MOD',00
+         DA    ampMod
          DFB   and_t,0
          DA    ampAnd
          DFB   or_t,0

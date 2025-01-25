@@ -19,7 +19,7 @@ if (!(Test-Path build)) {
 # Get the version from the WOZ metadata
 $vers = (Get-Content ./scripts/meta.json | ConvertFrom-Json).woz2.meta.version
 # Check DHRLIB version
-(Get-Content ./src/dhrlib.S -Raw) -match 'version\s+DFB\s+([0-9]+,[0-9]+,[0-9]+)'
+(Get-Content ./src/merlin/dhrlib.S -Raw) -match 'version\s+DFB\s+([0-9]+,[0-9]+,[0-9]+)'
 $dhrlib_vers = $Matches[1] -replace ',','.'
 if ($vers -ne $dhrlib_vers) {
     Write-Error ("DHRLIB version is " + $dhrlib_vers + ", but meta version is " + $vers)
@@ -29,20 +29,27 @@ if ($vers -ne $dhrlib_vers) {
 # install the BASIC programs
 foreach ($f in $basicFiles) {
     a2kit delete -d $hd -f ($prodosPath + $f)
-    Get-Content ("./src/" + $f + ".bas") |
+    Get-Content ("./src/basic/" + $f + ".bas") |
      a2kit minify -t atxt --level 3 |
       a2kit tokenize -a 2049 -t atxt |
        a2kit put -d $hd -f ($prodosPath + $f) -t atok
 }
 
-# cross assemble and install object code
-Merlin32 ./src ./src/link32.S
+# Assemble and put MAPLIB
+./scripts/config-asm -target maplib
+Merlin32 ./src/merlin ./src/merlin/link32.S
+a2kit delete -d $hd -f ($prodosPath + "maplib")
+a2kit get -f ./src/merlin/dhrlib | a2kit put -d $hd -f ($prodosPath + "maplib") -t bin -a 16384
+
+# Assemble and put DHRLIB
+./scripts/config-asm -target dhrlib
+Merlin32 ./src/merlin ./src/merlin/link32.S
 a2kit delete -d $hd -f ($prodosPath + "dhrlib")
-a2kit get -f ./src/dhrlib | a2kit put -d $hd -f ($prodosPath + "dhrlib") -t bin -a 16384
+a2kit get -f ./src/merlin/dhrlib | a2kit put -d $hd -f ($prodosPath + "dhrlib") -t bin -a 16384
 
 # cleanup
-Move-Item ./src/dhrlib ./build/dhrlib
-Remove-Item ./src/_FileInformation.txt -Force
+Move-Item ./src/merlin/dhrlib ./build/dhrlib
+Remove-Item ./src/merlin/_FileInformation.txt -Force
 # update the project's DHRLIB file image
 a2kit get -d $hd -f ($prodosPath + "dhrlib") -t any > ./fimg/dhrlib.json
 

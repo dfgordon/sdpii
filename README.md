@@ -2,11 +2,10 @@
 
 Apple II double high resolution graphics:
 
-* Assembly language library
+* Assembly language modules
 * Ampersand interface for Applesoft
 * Encode/decode drawing sequences
-* Applesoft drawing program
-* Applesoft tile builder program
+* Applesoft painter, tiler, mapper
 
 ## Status
 

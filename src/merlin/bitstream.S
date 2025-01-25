@@ -12,6 +12,8 @@
          PUT   equiv
          USE   macros
 
+         DO       _pics/2
+
 cmdBits  EXT
 
 * Initialize a bitstream at `stream`.
@@ -203,3 +205,4 @@ clsBits  ENT
 illQ     LDX   #ILLQTY
          JMP   DOERR
 
+         FIN

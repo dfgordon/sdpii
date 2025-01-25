@@ -1,9 +1,18 @@
-* Conditional assembly
+* Equivs starting with `_` are assembly flags.
+* `_pics = 0` -> primitives=0,decode=0,encode=0
+* `_pics = 1` -> primitives=1,decode=0,encode=0
+* `_pics = 2` -> primitives=1,decode=1,encode=0
+* `_pics = 3` -> primitives=1,decode=1,encode=1
+* `_tile = 0` -> scroll=0,text=0,maps=0
+* `_tile = 1` -> scroll=1,text=0,maps=0
+* `_tile = 2` -> scroll=1,text=1,maps=0
+* `_tile = 3` -> scroll=1,text=1,maps=1
 
 _safe    =     0          ; protect memory
 _wrap    =     1          ; wrap cursor
 _bound   =     1          ; bounds check &s
-_builder =     1          ; enable pic encoding
+_pics    =     3          ; see above
+_tile    =     3          ; see above
 maxBrsh  =     7
 
 * Token overloads
@@ -147,6 +156,7 @@ COL80    =     $C00D
 RDMAIN   =     $C002
 WRMAIN   =     $C004
 MAINZP   =     $C008
+ALTZP    =     $C009
 STOR80   =     $C001
 DHR      =     $C05E
 GRAPHICS =     $C050
@@ -158,3 +168,4 @@ AUXMEM   =     $C055
 CHKAUX   =     $C01C
 RDBNK2   =     $C080
 RDROM    =     $C081
+RWBNK2   =     $C083
