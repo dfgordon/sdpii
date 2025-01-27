@@ -5,6 +5,7 @@
 #Requires -Version 7.4
 Set-Variable ErrorActionPreference "Stop"
 
+Set-Variable prodosPath ""
 Set-Variable floppy "./build/sdpii.woz"
 Set-Variable basicFiles @("startup","paint","tile","repaint","map")
 

@@ -53,29 +53,15 @@ The `&psh` and `&pul` ampersands allow byte-values to be pushed onto, and pulled
 
 ## Memory Map
 
-As of this writing `paint` and `repaint` use the following memory map:
+All memory protection in this system is by means of HIMEM and LOMEM.  LOMEM is moved past library and workspace areas to prevent collisions with strings.  As of this writing `tile`, `paint` and `repaint` use the following memory map:
 
 Bank | Range | Usage
 -----|------|------
 main | $0801 - $2000 | Program
 main | $2000 - $4000 | Screen buffer
-main | $4000 - $5XXX | DHRLIB
-main | $5XXX - $8000 | Picture workspace
-main | $8000 - $9000 | Variables
-aux | $0800 - $0E00 | ASCII Glyphs
-bank2 | $D000-$D100 | Extended glyphs
-
-The picture workspace is dynamically allocated based on the actual size of DHRLIB.
-
-The memory map used by `tile` is:
-
-Bank | Range | Usage
------|------|------
-main | $0801 - $2000 | Program
-main | $2000 - $4000 | Screen buffer
-main | $4000 - $6000 | DHRLIB + free space
-main | $6000 - $8000 | Tile workspace
-main | $8000 - $9000 | Variables
+main | $4000 - $XXXX | DHRLIB
+main | $XXXX - $8000 | Workspace
+main | $8000 - HIMEM | Variables
 aux | $0800 - $0E00 | ASCII Glyphs
 bank2 | $D000-$D100 | Extended glyphs
 
@@ -85,14 +71,14 @@ Bank | Range | Usage
 -----|------|------
 main | $0801 - $2000 | Program
 main | $2000 - $4000 | Screen buffer
-main | $4000 - $4XXX | MAPLIB
-main | $4XXX - $8B00 | Map workspace
-main | $8B00 - $9200 | Variables
+main | $4000 - $XXXX | MAPLIB
+main | $XXXX - $8B00 | Map workspace
+main | $8B00 - HIMEM | Variables
 aux | $0800 - $0E00 | ASCII Glyphs
 bank2 | $D000-$D100 | Extended glyphs
 bank2 | $D400-$E000 | Tiles 
 
-The map workspace is dynamically allocated based on the actual size of MAPLIB.  MAPLIB is a paired down DHRLIB.
+The workspaces are dynamically allocated based on the actual size of DHRLIB or MAPLIB.  MAPLIB is a version of DHRLIB that only contains map and utility ampersands.  It is supposed to be small enough to allow editing an uncompressed 128 by 128 map.
 
 ### Minifier
 

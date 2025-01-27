@@ -1,16 +1,16 @@
-1 himem: 9*4096: lomem: 8*4096: if peek(-1088)=234 then text: home: print chr$(7);"65C02 PROCESSOR REQUIRED": end
+1 gosub 892: lomem: 8*4096: if peek(-1088)=234 then text: home: print chr$(7);"65C02 PROCESSOR REQUIRED": end
 2  DEF  FN GT16(ADDR) =  PEEK (ADDR) + 256 *  PEEK (ADDR + 1)
-3  print chr$(4);"bload dhrlib": poke 1013,76: poke 1014,0: poke 1015,64
+3  print chr$(4);"bload dhrlib": poke 1013,76: poke 1014,0: poke 1015,64: gosub 890
 4  print chr$(4);"bload font1": print chr$(4);"pr#3": poke 232,0: poke 233,96: &aux: poke 233,0
-6 lx = 1: ly = 1: dx = 8: dy = 6: yg = 2+16*ly: a0 = 96*256: poke a0,lx: poke a0+1,ly: gosub 800
-7 poke 232,0: poke 233,a0/256: tilNum = 0: tSize = 16*lx*ly: & vers: &pul > vers(0): &pul > vers(1): &pul > vers(2): goto 60
+6 lx = 1: ly = 1: dx = 8: dy = 6: yg = 2+16*ly: poke a0,lx: poke a0+1,ly: gosub 800
+7 poke 232,a1lo: poke 233,a2hi: tilNum = 0: tSize = 16*lx*ly: & vers: &pul > vers(0): &pul > vers(1): &pul > vers(2): goto 60
 
 10 rem coords
 11 w$ = "   " + str$(x) + "," + str$(y): poke 233,0: &mode=0: &print w$ at 41-len(w$),1
 12 &print "pen=" + str$(pd) at 36,2: i = fre(0)
-13 poke 233,a0/256: &mode=128: return
+13 poke 233,a2hi: &mode=128: return
 
-15 poke 233,0: &mode=0: &clear 1,24: &mode=128: &print w$ at 1,24: poke 233,a0/256: return: rem progress message
+15 poke 233,0: &mode=0: &clear 1,24: &mode=128: &print w$ at 1,24: poke 233,a2hi: return: rem progress message
 16 poke 233,0: &mode=0: &clear 1,24: goto 13: rem finish progress and return
 
 20 rem get upper
@@ -72,11 +72,11 @@
 
 150 rem swap
 151 i = 0: j = 1: &clear 1,24: &print "swap partner 1" at 1,24
-152 poke 233,a0/256: &tile #i at 1,21: gosub 20: i = i + (a=21) - (a=8): &mod(i,tilNum)
+152 poke 233,a2hi: &tile #i at 1,21: gosub 20: i = i + (a=21) - (a=8): &mod(i,tilNum)
 153 if a = 32 then poke 233,0: &print "2" at 14,24: goto 160
 154 if a = 27 then return
 155 goto 152
-160 poke 233,a0/256: &tile #j at 1,21: gosub 20: j = j + (a=21) - (a=8): &mod(j,tilNum)
+160 poke 233,a2hi: &tile #j at 1,21: gosub 20: j = j + (a=21) - (a=8): &mod(j,tilNum)
 161 if a = 32 then 169
 162 if a = 27 then return
 163 goto 160
@@ -109,9 +109,16 @@
 810 dim pn$(9): dim cl(4): dim vers(2): for i = 0 to 4: cl(i) = 15: next
 820 return
 
+890 rem tile workspace
+891 a0 = peek (48825) + 256 * peek (48826) + peek (48840) + 256 * peek(48841): a1lo = a0: &mod(a1lo,256): a2hi = int(a0/256): return
+
+892 rem check himem
+893 hm = peek (115) + 256 * peek (116): if hm < 9*4096 then print "HIMEM TOO LOW": end
+894 return
+
 900 rem color picker
 901 &clear 1,24: a$ = chr$(130) + chr$(131) + ", SPC": if ci > 0 then a$ = a$ + ", TAB"
-902 poke 233,0: &print a$ at 3+2*(ci>0),24: poke 233,a0/256
+902 poke 233,0: &print a$ at 3+2*(ci>0),24: poke 233,a2hi
 911 &mod(cl(0),16): if ci = 0 then 930
 914 if ci>4 then ci = 1
 920 cl(ci) = cl(0): &hcolor=cl(1),cl(2),cl(3),cl(4): &trap at 28,43,184 to 28,43,191
@@ -136,11 +143,11 @@
 
 1100  rem overview
 1101  &dhr: poke -16302,0: x = 1: y = 1: for i = 1 to tilNum
-1102  poke 233,a0/256: &tile #i-1 at x,y: poke 233,0: &print str$(i-1) at x,y+ly: x = x + lx
+1102  poke 233,a2hi: &tile #i-1 at x,y: poke 233,0: &print str$(i-1) at x,y+ly: x = x + lx
 1103  if x>40 then x = 1: y = y + ly*2
 1104  next
 1110  &mode=0: poke 233,0: &print "ESC=exit, SPC=swap" at 1,24: gosub 20
-1111  if a = 27 then poke 233,a0/256: goto 60
+1111  if a = 27 then poke 233,a2hi: goto 60
 1112  if a = 32 then gosub 150: goto 1100
 1113  goto 1110
 
@@ -153,4 +160,5 @@
 1199 print "disk error try again": call -3288: goto 1170
 
 1200 rem quit
-1210 home: vtab 21: end
+1210 home: vtab 21: print "confirm (Y/N) ": get a$: if a$ = "Y" then end
+1220 goto 60

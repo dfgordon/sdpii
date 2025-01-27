@@ -1,5 +1,5 @@
-1 himem: 9*4096: lomem: 8*4096: if peek(-1088)=234 then text: home: print chr$(7);"65C02 REQUIRED": end
-2  print chr$(4);"bload dhrlib": gosub 890: poke 1013,76: poke 1014,0: poke 1015,64
+1 gosub 892: lomem: 8*4096: if peek(-1088)=234 then text: home: print chr$(7);"65C02 REQUIRED": end
+2  print chr$(4);"bload dhrlib": poke 1013,76: poke 1014,0: poke 1015,64: gosub 890
 3  print chr$(4);"bload font1": print chr$(4);"pr#3": poke 232,0: poke 233,96: &aux: poke 233,0
 4  gosub 800: & vers: &pul > vers(0): &pul > vers(1): &pul > vers(2): goto 850
 
@@ -103,6 +103,10 @@
 
 890 rem picture workspace
 891 a0 = peek (48825) + 256 * peek (48826) + peek (48840) + 256 * peek(48841): addr = a0: bit = 8: return
+
+892 rem check himem
+893 hm = peek (115) + 256 * peek (116): if hm < 9*4096 then print "HIMEM TOO LOW": end
+894 return
 
 900 rem color picker
 901 &clear 1,24: a$ = chr$(130) + chr$(131) + ", SPC": if ci > 0 then a$ = a$ + ", TAB"

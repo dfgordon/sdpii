@@ -25,13 +25,16 @@ rowTbHi  EXT
 rowTbLo  EXT
 
          DO    _tile
-begMVw   DFB   0,0        ; start of view in map coords
-endMVw   DFB   0,0        ; end of view in map coords
-endMap   DFB   0,0        ; end of all map data
-endScrn  DFB   0,0        ; end of view in screen coords
-colCount DFB   0
-rowCount DFB   0
+begMVw   DFB   0,0        ; start of view in map coords (tiles)
+endMVw   DFB   0,0        ; end of view in map coords (tiles)
+sizMVw   DFB   0,0        ; size of view in tiles
+cntMVw   DFB   0,0        ; countdown of tiles in view
+endMap   DFB   0,0        ; total map dimensions in tiles
+endScrn  DFB   0,0        ; end of view in screen coords (cells)
 rowAdv   DA    0
+toggle   DFB   0
+count    DFB   0
+savePtr  DA    0
          FIN
 
 paint14  MAC
@@ -58,10 +61,11 @@ scroll14 MAC
 
 * draw tile A at X=x/14,Y=y/8, 0-indexed.
 * optimized version of core::tile, only works for 28x16 tiles.
-* DRAWPTR = pointer to tile data.  zptr,prod,ROWPTR modified.
+* DRAWPTR = pointer to tile data.  zptr,prod,ROWPTR,byt modified.
 * If DRAWPTR in ZP use stashed tiles in bank 2.
-* Returns starting X in COLUMN.
+* Returns starting X in COLUMN, preserves Y.
 fstTile  STX   COLUMN
+         STY   byt
          STA   prod
          STZ   prod+1
          LDA   RDBNK2
@@ -80,12 +84,11 @@ fstTile  STX   COLUMN
          STA   ROWPTR
          LDA   rowTbHi,Y
 :nxtRow  STA   ROWPTR+1
-         PHY
          LDY   COLUMN
          paint14
          INY
          paint14
-         PLY
+         LDY   byt
          DEX
          BEQ   :fin
          CLC
@@ -98,11 +101,11 @@ fstTile  STX   COLUMN
 :fin     LDA   RDROM
          RTS
 
-* Draw map row starting at (stream) for colCount columns at X,Y.
+* Draw map row starting at (stream) for cntMVw+0 tiles at X,Y.
 * It is OK if (stream) points to a ghost cell.
 * fac1 and fac2 are a 16-bit mask, 0 = normal cell, 1 = ghost cell.
-* Y is preserved.  X,fac1,fac2,colCount,byt modified.
-mkrow    STY   byt
+* Y is preserved.  X,fac1,fac2,cntMVw+0,byt modified.
+mkrow
 :loop    LSR   fac2
          ROR   fac1
          BCS   :bound
@@ -112,10 +115,9 @@ mkrow    STY   byt
 :tile    JSR   fstTile
          inc16 stream
          LDX   COLUMN     ; set by fstTile
-         LDY   byt
          INX
          INX
-         DEC   colCount
+         DEC   cntMVw+0
          BNE   :loop
          RTS
 
@@ -126,8 +128,8 @@ mkrow    STY   byt
 * move one row of 14x8 blocks via in-place copy.
 * X0,Y is the starting block coordinate.
 * DX,DX+1 are offsets to the source blocks.
-* colCount is count of columns.
-* ROWPTR, zptr, colCount, byt2 are modified.
+* cntMVw+0 is count of cells (not tiles).
+* ROWPTR, zptr, cntMVw+0, byt are modified.
 mvrow    LDA   rowTbLo,Y
          CLC
          ADC   X0
@@ -141,30 +143,30 @@ mvrow    LDA   rowTbLo,Y
          STA   zptr
          LDA   rowTbHi,Y
          STA   zptr+1
-         ad816 X0;zptr
-         ad816 DX;zptr
+         addu8 X0;zptr
+         addi8 DX;zptr
          LDX   #$08       ; y-pixels/block
          LDA   DX
          BMI   :nbeg
          SEC
-         LDA   colCount
+         LDA   cntMVw+0
          SBC   DX
-         STA   colCount
+         STA   cntMVw+0
 :prow    LDY   #$00       ; source right, ascending order
 :ploop   scroll14
          INY
-         CPY   colCount
+         CPY   cntMVw+0
          BMI   :ploop
          BRA   :nxtrow
-:nbeg    DEC   colCount
+:nbeg    DEC   cntMVw+0
          LDA   DX
          EOR   #$FF
          INC
-         STA   byt2
-:nrow    LDY   colCount   ; source left, descending order
+         STA   byt
+:nrow    LDY   cntMVw+0   ; source left, descending order
 :nloop   scroll14
          DEY
-         CPY   byt2
+         CPY   byt
          BPL   :nloop
 :nxtrow  DEX
          BEQ   :fin
@@ -187,7 +189,7 @@ mvrow    LDA   rowTbLo,Y
 * Prepare to render a map view from x1,x1+1 to x2,x2+1,
 * starting at screen cell X0,X0+1 (14x8 blocks, 0-based).
 * Advances stream to the upper-left cell in the view.
-* Sets begMVw,endMVw,endMap,endScrn+1,rowCount.
+* Sets begMVw,endMVw,endMap,endScrn+1,cntMVw+1.
 * Increments x2,x2+1, then sets rowAdv to endMap + x1 - x2.
 inimap   LDA   (stream)
          STA   endMap
@@ -203,14 +205,14 @@ inimap   LDA   (stream)
          LDA   x1+1
          STA   fac2
          BPL   :posy
-:negy    sb816 rowAdv;stream
+:negy    subu8 rowAdv;stream
          INC   fac2
          BNE   :negy
          BRA   :horadj
 :posy    JSR   mulbb
          add16 prod;stream
-:horadj  ad816 x1;stream
-         ad816 x1;rowAdv
+:horadj  addi8 x1;stream
+         addi8 x1;rowAdv
          SEC
          LDA   rowAdv
          SBC   x2
@@ -223,14 +225,14 @@ inimap   LDA   (stream)
          SEC
          LDA   x2+1
          SBC   x1+1
-         STA   rowCount
+         STA   cntMVw+1
          ASL
          CLC
          ADC   X0+1
          STA   endScrn+1  ; start_row + rowCount*2
          RTS
 
-* Reset X, x1, x2, colCount, and set up the ghost cell bitmask per row.
+* Reset X, x1, x2, endScrn+0, cntMVw+0, sizMVw+0, and set up the ghost cell bitmask per row.
 * X is set to X0, Y is preserved.
 inirow   
          cp16  begMVw;x1
@@ -239,7 +241,12 @@ inirow
          SEC
          LDA   x2
          SBC   x1
-         STA   colCount
+         STA   cntMVw+0
+         STA   sizMVw+0
+         ASL
+         CLC
+         ADC   X0
+         STA   endScrn
          STZ   fac1
          STZ   fac2
          SEC
@@ -303,9 +310,12 @@ submap   ENT
          BRA   :loop
 :fin     RTS
 
-* update map by scrolling
-mvmap    LDA   DX+1
+* update map by scrolling - is this worth it?
+* so far we don't see huge difference in smoothness.
+mvmap    cp16  stream;savePtr
+         LDA   DX+1
          BMI   :n1
+         STZ   toggle
          LDY   X0+1
          LDA   endScrn+1
          BRA   :bound
@@ -314,22 +324,55 @@ mvmap    LDA   DX+1
          LDA   X0+1
 :bound   SEC
          SBC   DX+1
-         STA   byt
+         STA   count      ; y0+|dy| or y1-|dy|
 :loop    JSR   inirow
-         ASL   colCount
+         ASL   cntMVw+0
          PHY
          JSR   mvrow
          PLY
-         LDA   DX+1
+         LDA   DX
+         BNE   :edge
+:advs    LDA   toggle
+         EOR   #$80
+         STA   toggle
+         BMI   :noadv
+         addu8 endMap;stream
+:noadv   LDA   DX+1
          BMI   :n2
          INY
-         CPY   byt
+         CPY   count
          BMI   :loop
-         RTS
+         BRA   :newRow
 :n2      DEY
-         CPY   byt
+         CPY   count
          BPL   :loop
-         RTS
+         DEY
+:newRow  LDA   DX+1
+         BEQ   :fin
+         BPL   :keep
+         cp16  savePtr;stream
+:keep    JSR   inirow
+         JSR   mkrow
+:fin     RTS
+:edge    LDA   toggle
+         BEQ   :advs
+         PHY
+         LDA   DX
+         BPL   :rgt
+         LDX   X0
+         LDY   #0
+         BRA   :drw
+:rgt     LDX   endScrn
+         DEX
+         DEX
+         LDY   sizMVw+0
+         DEY
+:drw     LDA   (stream),Y
+         PLY
+         DEY
+         JSR   fstTile
+         INY
+         BRA   :advs
 
          FIN
 
@@ -351,13 +394,13 @@ scroll   ENT
          SBC   x1+1
          SBC   byt
          INC
-         STA   rowCount
+         STA   cntMVw+1
 
 :rowLup  SEC
          LDA   x2
          SBC   x1
          INC
-         STA   colCount
+         STA   cntMVw+0
          LDA   DX+1
          BMI   :neg
          LDY   x1+1
@@ -366,7 +409,7 @@ scroll   ENT
 :neg     LDY   x2+1
          DEC   x2+1
 :go      JSR   mvrow
-         DEC   rowCount
+         DEC   cntMVw+1
          BEQ   :fin
          BRA   :rowLup
 :fin     RTS

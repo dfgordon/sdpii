@@ -72,36 +72,33 @@ add16    MAC
          STA   ]2+1
          <<<
 
-ad816    MAC
+addu8    MAC
          CLC
          LDA   ]1
          ADC   ]2
          STA   ]2
-         LDA   ]1
-         BMI   neg
-         LDA   ]2+1
-         ADC   #$00
-         STA   ]2+1
-         BRA   fin
-neg      LDA   ]2+1
-         ADC   #$FF
-         STA   ]2+1
+         BCC   fin
+         INC   ]2+1
 fin      <<<
 
-sb816    MAC
+addi8    MAC
+         CLC
+         LDA   ]1
+         BPL   pos
+         DEC   ]2+1
+pos      ADC   ]2
+         STA   ]2
+         BCC   fin
+         INC   ]2+1
+fin      <<<
+
+subu8    MAC
          SEC
          LDA   ]2
          SBC   ]1
          STA   ]2
-         LDA   ]1
-         BMI   neg
-         LDA   ]2+1
-         SBC   #$00
-         STA   ]2+1
-         BRA   fin
-neg      LDA   ]2+1
-         SBC   #$FF
-         STA   ]2+1
+         BCS   fin
+         DEC   ]2+1
 fin      <<<
 
 rolClr   MAC
