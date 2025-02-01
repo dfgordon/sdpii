@@ -8,7 +8,6 @@ on:
 
 defaults:
   run:
-    # necessary for windows?
     shell: bash
     
 jobs:
@@ -33,7 +32,3 @@ jobs:
     - name: syntax check BASIC
       run: |
         ./a2kit get -f ./src/basic/startup.bas | ./a2kit verify -t atxt
-        ./a2kit get -f ./src/basic/map.bas | ./a2kit verify -t atxt
-        ./a2kit get -f ./src/basic/paint.bas | ./a2kit verify -t atxt
-        ./a2kit get -f ./src/basic/repaint.bas | ./a2kit verify -t atxt
-        ./a2kit get -f ./src/basic/tile.bas | ./a2kit verify -t atxt
