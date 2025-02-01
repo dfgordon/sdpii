@@ -31,4 +31,4 @@ jobs:
         extract: true
     - name: syntax check BASIC
       run: |
-        ./a2kit get -f ./src/basic/startup.bas
+        cat ./src/basic/startup.bas | ./a2kit verify -t atxt
