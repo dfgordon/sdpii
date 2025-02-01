@@ -69,6 +69,7 @@ pul      EXT
 
          DO    _tile/3
 submap   EXT
+avatar   EXT
          FIN
          DO    _tile
 scroll   EXT
@@ -449,9 +450,16 @@ ampTile  JSR   chkPnd
 
          DO    _tile/3
 
-* &aux.
-* swap 12 pages starting at DRAWPTR with $D400-$E000, bank 2.
+* &av #n
+ampAvtr  JSR   chkPnd
+         JSR   GETBYT
+         STX   avatar
+         RTS
+
+* &bank.
+* swap 12 pages starting at (DRAWPTR),2 with $D400-$E000, bank 2.
 ampBank  cp16  DRAWPTR;MVSRC
+         add16 #2;MVSRC
          mkptr $D400;MVDST
          LDA   RWBNK2
          LDA   RWBNK2     ; do it twice
@@ -471,12 +479,11 @@ ampBank  cp16  DRAWPTR;MVSRC
          LDA   RDROM
          RTS
 
-* &map at x1,y1 to x2,y2 at x,y [step dx,dy]
+* &map at x1,y1 to x2,y2 at x,y
 * x,y are where to start on the screen in units of 14x8 blocks, one-indexed.
 * x1,y1 and x2,y2 define the submap.
 * x1,y1 should be in [-128,127].  x2,y2 should be in [0,255].
 * Submap can be partially out of bounds, but not completely out of bounds.
-* dx,dy are cell offsets, if provided use scroll methodology.
 ampMap   JSR   chkAt
          JSR   mapPt
          STX   x1
@@ -491,15 +498,6 @@ ampMap   JSR   chkAt
          JSR   txtPt
          STX   X0
          STY   X0+1
-         STZ   DX
-         STZ   DX+1
-         LDA   #step_t
-         CMP   (TXTPTR)
-         BNE   :go
-         JSR   CHRGET
-         JSR   mapPt
-         STX   DX
-         STY   DX+1
 :go      JSR   submap
          JMP   ampDone
 
@@ -648,7 +646,7 @@ cmosErr  JSR   BELL
 * Table of ampersands.
 * If one is a left-substring of another, longer string must go first.
 * Whenever one is added put it here alphabetically and check:
-* AUX,BANK,BIT,DHR,MAP,MOD,MODE,MOVE,PSH,PUL,REC,SCAN,SEEKG,SEEKP,SCROLL,STROKE,TELLG,TELLP,TRAP,TILE,VERS
+* AV,AUX,BANK,BIT,DHR,MAP,MOD,MODE,MOVE,PSH,PUL,REC,SCAN,SEEKG,SEEKP,SCROLL,STROKE,TELLG,TELLP,TRAP,TILE,VERS
 ampTbl   ASC   'VERS',00
          DA    ampVers
          ASC   'DHR',00
@@ -710,6 +708,8 @@ ampTbl   ASC   'VERS',00
          FIN
 
          DO    _tile/3
+         ASC   'AV',00
+         DA    ampAvtr
          ASC   'BANK',00
          DA    ampBank
          ASC   'MAP',00

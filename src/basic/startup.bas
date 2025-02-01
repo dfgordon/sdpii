@@ -12,6 +12,7 @@
 50 home: print "FONT1 stashed in auxiliary memory"
 60 &seekg(a0,0): &seekp(a0,0): print "Picture buffer at ";a0
 70 &vers: dim x(2): &pul > x(0): &pul > x(1): &pul > x(2): print "DHRLIB version is "x(0)"."x(1)"."x(2)
+80 print "Repository: https://github.com/dfgordon/sdpii"
 99 vtab 21: end
 
 890 rem picture workspace

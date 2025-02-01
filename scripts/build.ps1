@@ -39,31 +39,31 @@ foreach ($f in $basicFiles) {
        a2kit put -d $floppy -f $f -t atok
 }
 
-# Assemble and put IDENTIFY
+# Assemble, put, and archive IDENTIFY
 Merlin32 ./src/merlin ./src/merlin/identify.S
 a2kit get -f ./src/merlin/identify | a2kit put -d $floppy -f identify -t bin -a 768
+a2kit get -f ./src/merlin/identify | a2kit pack -a 768 -t bin -o prodos -f identify > ./fimg/identify.json
 Move-Item ./src/merlin/identify ./build/identify
 
-# Assemble and put MAPLIB
+# Assemble, put, and archive MAPLIB
 ./scripts/config-asm -target maplib
 Merlin32 ./src/merlin ./src/merlin/link32.S
 a2kit get -f ./src/merlin/dhrlib | a2kit put -d $floppy -f maplib -t bin -a 16384
+a2kit get -f ./src/merlin/dhrlib | a2kit pack -a 16384 -t bin -o prodos -f maplib > ./fimg/maplib.json
+Move-Item ./src/merlin/dhrlib ./build/maplib
 
-# Assemble and put DHRLIB and FONT1
+# Assemble, put, and archive DHRLIB
 ./scripts/config-asm -target dhrlib
 Merlin32 ./src/merlin ./src/merlin/link32.S
 a2kit get -f ./src/merlin/dhrlib | a2kit put -d $floppy -f dhrlib -t bin -a 16384
+a2kit get -f ./src/merlin/dhrlib | a2kit pack -a 16384 -t bin -o prodos -f dhrlib > ./fimg/dhrlib.json
+Move-Item ./src/merlin/dhrlib ./build/dhrlib
+
+# Copy over file images
 a2kit get -f ./fimg/font1.json | a2kit put -d $floppy -f font1 -t any
 
-# Update the project's file images
-a2kit get -d $floppy -f dhrlib -t any > ./fimg/dhrlib.json
-a2kit get -d $floppy -f identify -t any > ./fimg/identify.json
-
 # Cleanup
-Move-Item ./src/merlin/dhrlib ./build/dhrlib
 Remove-Item ./src/merlin/_FileInformation.txt -Force
-# update the project's DHRLIB file image
-a2kit get -d $floppy -f ($prodosPath + "dhrlib") -t any > ./fimg/dhrlib.json
 
 # If disk image notebook available, leave out the catalog,
 # so the merlin output is more readily viewable.

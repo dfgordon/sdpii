@@ -1,0 +1,39 @@
+name: a2kit CI
+
+on:
+  push:
+    branches: [ master ]
+  pull_request:
+    branches: [ master ]
+
+defaults:
+  run:
+    # necessary for windows?
+    shell: bash
+    
+jobs:
+  test:
+    strategy:
+      matrix:
+        node-version: [20.x]
+        OS: [macos-latest]
+
+    runs-on: ${{ matrix.OS }}
+
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+    - name: Download a2kit
+      uses: robinraju/release-downloader@v1
+      with:
+        repository: 'dfgordon/a2kit'
+        latest: true
+        fileName: 'a2kit-aarch64-*'
+        extract: true
+    - name: syntax check BASIC
+      run: |
+        ./a2kit get -f ./src/basic/startup.bas | ./a2kit verify -t atxt
+        ./a2kit get -f ./src/basic/map.bas | ./a2kit verify -t atxt
+        ./a2kit get -f ./src/basic/paint.bas | ./a2kit verify -t atxt
+        ./a2kit get -f ./src/basic/repaint.bas | ./a2kit verify -t atxt
+        ./a2kit get -f ./src/basic/tile.bas | ./a2kit verify -t atxt

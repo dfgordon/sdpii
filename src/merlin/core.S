@@ -702,8 +702,9 @@ ldglyph  STZ   MVSRC
 
 * Draw tile A at X=x/14,Y=y/8. zero-indexing.
 * DRAWPTR = pointer to tile data.
-* If DRAWPTR in ZP, assume packed tiles, with header.
+* If DRAWPTR in ZP, assume packed tiles, no header.
 * If DRAWPTR in page 8, assume a packed font, no header.
+* This is built to be general, not fast, see also map::fstTile.
 tile     ENT
          PHY
          STA   fac1
@@ -717,7 +718,11 @@ tile     ENT
          cp16  DRAWPTR;MVSRC
          BRA   :offset
 :ldbank  mkptr $D400;MVSRC
-         BRA   :offset
+         LDA   #2
+         STA   X00
+         LDA   #16
+         STA   fac2
+         BRA   :off2
 :ldglyph JSR   ldglyph
          mkptr glyph;zptr
          BRA   :iniLup
@@ -730,7 +735,7 @@ tile     ENT
          ASL
          ASL
          STA   fac2       ; pixel-rows, also used later
-         JSR   tileptr
+:off2    JSR   tileptr
          cp16  MVSRC;zptr
 * tile is loaded and/or referenced
 :iniLup  PLY

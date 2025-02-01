@@ -13,7 +13,7 @@ Set-Variable basicFiles @("paint","tile","repaint","map")
 if (!(Test-Path build)) {
     mkdir ./build
 } else {
-    Remove-Item ./build/dhrlib
+    Remove-Item ./build/*lib
 }
 
 # Get the version from the WOZ metadata
@@ -40,17 +40,16 @@ foreach ($f in $basicFiles) {
 Merlin32 ./src/merlin ./src/merlin/link32.S
 a2kit delete -d $hd -f ($prodosPath + "maplib")
 a2kit get -f ./src/merlin/dhrlib | a2kit put -d $hd -f ($prodosPath + "maplib") -t bin -a 16384
+a2kit get -f ./src/merlin/dhrlib | a2kit pack -a 16384 -t bin -o prodos -f maplib > ./fimg/maplib.json
+Move-Item ./src/merlin/dhrlib ./build/maplib
 
 # Assemble and put DHRLIB
 ./scripts/config-asm -target dhrlib
 Merlin32 ./src/merlin ./src/merlin/link32.S
 a2kit delete -d $hd -f ($prodosPath + "dhrlib")
 a2kit get -f ./src/merlin/dhrlib | a2kit put -d $hd -f ($prodosPath + "dhrlib") -t bin -a 16384
+a2kit get -f ./src/merlin/dhrlib | a2kit pack -a 16384 -t bin -o prodos -f dhrlib > ./fimg/dhrlib.json
+Move-Item ./src/merlin/dhrlib ./build/dhrlib
 
 # cleanup
-Move-Item ./src/merlin/dhrlib ./build/dhrlib
 Remove-Item ./src/merlin/_FileInformation.txt -Force
-# update the project's DHRLIB file image
-a2kit get -d $hd -f ($prodosPath + "dhrlib") -t any > ./fimg/dhrlib.json
-
-#a2kit catalog -d $hd -f $prodosPath

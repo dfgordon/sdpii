@@ -2,14 +2,12 @@
 
 Apple II double high resolution graphics:
 
+* Programs to build pictures and maps
 * Assembly language modules
-* Ampersand interface for Applesoft
-* Encode/decode drawing sequences
-* Applesoft painter, tiler, mapper
-
-## Status
-
-Map encoding and scrolling is still being optimized.
+* Applesoft bindings (ampersands)
+    * Render pictures
+    * Render map views
+    * Print text to DHGR screen
 
 ## Documentation
 
