@@ -32,3 +32,7 @@ jobs:
     - name: syntax check BASIC
       run: |
         cat ./src/basic/startup.bas | ./a2kit verify -t atxt
+        cat ./src/basic/map.bas | ./a2kit verify -t atxt
+        cat ./src/basic/paint.bas | ./a2kit verify -t atxt
+        cat ./src/basic/repaint.bas | ./a2kit verify -t atxt
+        cat ./src/basic/tile.bas | ./a2kit verify -t atxt
