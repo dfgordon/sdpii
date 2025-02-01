@@ -1,5 +1,5 @@
 1 home: print "CHECK REQUIREMENTS...": print chr$(4);"BLOAD IDENTIFY": call 768
-2 if peek(0) = 0 then 10
+2 f peek(0) = 0 then 10
 3 print "ONE OF THE FOLLOWING NOT MET:"
 4 print " 1. ENHANCED //E OR HIGHER"
 5 print " 2. 80 COLUMN FIRMWARE"
