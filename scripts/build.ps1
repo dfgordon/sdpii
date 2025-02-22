@@ -7,7 +7,7 @@ Set-Variable ErrorActionPreference "Stop"
 
 Set-Variable prodosPath ""
 Set-Variable floppy "./build/sdpii.woz"
-Set-Variable basicFiles @("startup","paint","tile","repaint","map")
+Set-Variable basicFiles @("startup","config","paint","tile","repaint","map")
 
 if (!(Test-Path ./build)) {
     mkdir ./build
@@ -34,9 +34,10 @@ Get-Content ./scripts/meta.json | a2kit put -d $floppy -t meta
 # Tokenize and put BASIC sources
 foreach ($f in $basicFiles) {
     Get-Content ("./src/basic/" + $f + ".bas") |
-     a2kit minify -t atxt --level 3|
-      a2kit tokenize -a 2049 -t atxt |
-       a2kit put -d $floppy -f $f -t atok
+    a2kit renumber -b 0 -e 64000 -f 1 -s 1 -t atxt |
+      a2kit minify -t atxt --level 3|
+        a2kit tokenize -a 2049 -t atxt |
+          a2kit put -d $floppy -f $f -t atok
 }
 
 # Assemble, put, and archive IDENTIFY
@@ -61,6 +62,7 @@ Move-Item ./src/merlin/dhrlib ./build/dhrlib
 
 # Copy over file images
 a2kit get -f ./fimg/font1.json | a2kit put -d $floppy -f font1 -t any
+a2kit get -f ./src/basic/config.txt | a2kit put -d $floppy -f sdpii.config -t txt
 
 # Cleanup
 Remove-Item ./src/merlin/_FileInformation.txt -Force

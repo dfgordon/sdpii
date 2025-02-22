@@ -2,7 +2,7 @@
     "woz2": {
         "info": {
             "compatible_hardware": "7800",
-            "required_ram": "3000"
+            "required_ram": "8000"
         },
         "meta": {
             "title": "SDP II",
@@ -11,7 +11,7 @@
             "copyright": "MIT license",
             "version": "0.0.0",
             "language": "English",
-            "requires_ram": "48K",
+            "requires_ram": "128K",
             "requires_rom": "Applesoft",
             "apple2_requires": "Color TV recommended",
             "requires_machine": "2c|2e+|2gs|2c+",

@@ -1,9 +1,12 @@
 1 gosub 892: lomem: 35584: if peek(-1088)=234 then text: home: print chr$(7);"65C02 PROCESSOR REQUIRED": end
-2  def  fn gt16(addr) =  peek (addr) + 256 *  peek (addr + 1)
-4  print chr$(4);"bload maplib": poke 1013,76: poke 1014,0: poke 1015,64: gosub 890
-6  print chr$(4);"bload font1": print chr$(4);"pr#3": poke 232,0: poke 233,96: &aux: poke 233,0
-7 vwidth = 15: vheight = 11: gosub 800: gosub 1300
-8 &vers: &pul > vers(0): &pul > vers(1): &pul > vers(2): goto 70
+2  d$ = chr$(4): def  fn gt16(addr) =  peek (addr) + 256 *  peek (addr + 1)
+3  print d$;"bload maplib": poke 1013,76: poke 1014,0: poke 1015,64: gosub 890
+4  print d$;"bload font1": print d$;"pr#3": poke 232,0: poke 233,96: &aux: poke 233,0
+5 vwidth = 15: vheight = 11: gosub 800: gosub 1300
+6 &vers: &pul > vers(0): &pul > vers(1): &pul > vers(2): gosub 50: gosub 8: goto 70
+
+8 text: home: print chr$(17): return: rem 40 column text home
+9 text: home: print chr$(18): &dhr: poke -16302,0: return: rem DHR home
 
 10 rem tile selection
 11 pd = pd + 1: &mod(pd,tcount): &tile #pd at 39,21: return
@@ -24,6 +27,13 @@
 35  if a =  10 or a =  21 then n = m: m = m + 1: if m > p then m = 0
 36  htab 4: vtab n + l: print pn$(n): inverse: htab 4: vtab m + l: print pn$(m): normal: goto 32
 
+50 rem path setup
+51 print d$;"prefix": input wd$: print d$;"open sdpii.config": print d$;"read sdpii.config"
+52 input a$: input a$: input map$: input tile$: print d$;"close sdpii.config"
+53 if map$="" then map$=wd$
+54 if tile$="" then tile$=wd$
+55 return
+
 60 rem edit prompt
 61 &clear 1,23 to 40,24
 62 &print chr$(128) + chr$(129) + "SPC=place, `=prev, TAB=next" at 1,23
@@ -31,7 +41,7 @@
 64 rem coords
 65 w$ = "  " + str$(x) + "," + str$(y): &tile #pd at 39,21: &print w$ at 41-len(w$),24: i = fre(0): return
 
-70  text : home : print "SDP II Mapper "vers(0)"."vers(1)"."vers(2): vtab 13: print "size=";lx;",";ly: print "tiles=";tcount: l = 3: p = 7: w$ = "Select- ": b = 13
+70  gosub 8: m = fre(0): print "SDP II Mapper "vers(0)"."vers(1)"."vers(2): vtab 13: print "size=";lx;",";ly: print "tiles=";tcount: l = 3: p = 7: w$ = "Select- ": b = 13
 71 pn$(0) = "Load Tiles": pn$(1) = "New Map": pn$(2) = "Load Map": pn$(3) = "Save Map": pn$(4) = "Edit": pn$(5) = "Settings": pn$(6) = "Catalog": pn$(7) = "Exit": gosub 30
 72  on m + 1 goto 450,400,500,1000,1050,900,1150,1200
 
@@ -74,6 +84,10 @@
 223 if a = asc("W") then poke a0 + 5, pd
 230 gosub 60: goto 96
 
+300 a$ = tile$: goto 320: rem enter tile path
+310 a$ = map$: rem enter map path
+320 home: print d$;"prefix ";a$: print "prefix: ";a$: input "path: ";a$: return
+
 400 rem init map
 410  gosub 600: home: input "map columns: ";lx: if lx<16 or lx>128 then 410
 420  input "map rows: ";ly: if ly<16 or ly>128 then home: goto 420
@@ -91,19 +105,17 @@
 
 450 rem load tiles
 451  home: if a0 + 6 + lx*ly >= 24576 then print "save and restart program first": get a$: goto 70
-460  input "tile path: ";a$
-461  onerr goto 1049
-462  print chr$(4);"bload ";a$;",a$6000": poke 233,96: &bank: poke 233,0
-463  tcount = (peek (48840) + 256 * peek(48841) - 2) / 64
+460  gosub 300: onerr goto 1049
+462  print d$;"bload ";a$;",a$6000": poke 233,96: &bank: poke 233,0
+463  tcount = (fn gt16 (48840) - 2) / 64
 470  print "tiles stashed in bank 2 at $D400"
 471  print "saving displaced memory..."
-472  print chr$(4);"bsave d400.bank2.save,a$6002,l$c00"
+472  print d$;"bsave ";wd$;"d400.bank2.save,a$6002,l$c00"
 499  tiles = 1: poke 216,0: goto 70
 
 500 rem load map
-501  gosub 600: home: input "map path: ";a$
-502  onerr goto 1049
-503  print chr$(4);"bload ";a$;",a";a0: lx = peek(a0): ly = peek(a0+1)
+501  gosub 600: gosub 310: onerr goto 1049
+503  print d$;"bload ";a$;",a";a0: lx = peek(a0): ly = peek(a0+1)
 508  map = 1: poke 216,0: goto 70
 
 600 rem check tiles, may pop stack
@@ -119,7 +131,7 @@
 820  return
 
 890 rem map workspace
-891 a0 = peek (48825) + 256 * peek (48826) + peek (48840) + 256 * peek(48841): a1lo = a0: &mod(a1lo,256): a2hi = int(a0/256): return
+891 a0 = fn gt16 (48825) + fn gt16 (48840): a1lo = a0: &mod(a1lo,256): a2hi = int(a0/256): return
 
 892 rem check himem
 893 hm = peek (115) + 256 * peek (116): if hm < 9*4096 then print "HIMEM TOO LOW": end
@@ -132,29 +144,29 @@
 940 &av #avtar: goto 70
 
 1000 rem save map
-1010 home: input "save path: ";a$
-1020 onerr goto 1049
-1021 print chr$(4);"bsave ";a$;",a";a0;",l";lx*ly+6: poke 216,0: goto 70
+1010 gosub 700: gosub 310: onerr goto 1049
+1020 print d$;"bsave ";a$;",a";a0;",l";lx*ly+6: poke 216,0: goto 70
 1049 print "disk error": call -3288: get a$: poke 216,0: goto 70
 
 1050  rem edit map
-1060  gosub 600: gosub 700: &dhr: x = lx/2: y = ly/2: pd = 0
+1060  gosub 600: gosub 700: gosub 9: x = lx/2: y = ly/2: pd = 0
 1070  poke -16302,0: gosub 60: ds = 0: gosub 96: goto 80
 
 1150 rem catalog
-1160 text:home: print chr$(4);"catalog"
+1160 home: print d$;"cat"
 1170 input "enter prefix or bye: ";a$
 1180 if a$="bye" or a$="BYE" then 70
 1185 onerr goto 1199
-1190 print chr$(4);"prefix ";a$: poke 216,0: goto 1160
+1190 print d$;"prefix ";a$: poke 216,0: goto 1160
 1199 print "disk error try again": call -3288: goto 1170
 
 1200 rem quit
 1210 home: vtab 21: print "confirm (Y/N) ": get a$: if a$ = "Y" then 1230
 1220 goto 70
-1230 if tiles then print "restoring bank switched memory..."
-1240 if tiles then print chr$(4);"bload d400.bank2.save": poke 232,0: poke 233,96: &bank
-1250 end
+1230 print: print "restoring prefix...": print d$;"prefix";wd$
+1240 if tiles then print "restoring bank switched memory..."
+1250 if tiles then print d$;"bload d400.bank2.save": poke 232,0: poke 233,96: &bank
+1260 end
 
 1300 rem setup move memory call
 1310 poke 768,160: poke 769,0: poke 770,32: poke 771,44: poke 772,254: poke 773,96: return

@@ -1,9 +1,12 @@
-1 gosub 892: lomem: 8*4096: if peek(-1088)=234 then text: home: print chr$(7);"65C02 PROCESSOR REQUIRED": end
-2  DEF  FN GT16(ADDR) =  PEEK (ADDR) + 256 *  PEEK (ADDR + 1)
-3  print chr$(4);"bload dhrlib": poke 1013,76: poke 1014,0: poke 1015,64: gosub 890
-4  print chr$(4);"bload font1": print chr$(4);"pr#3": poke 232,0: poke 233,96: &aux: poke 233,0
+1 gosub 892: lomem: 8*4096: if peek(-1088)=234 then print chr$(7);"65C02 PROCESSOR REQUIRED": end
+2  d$ = chr$(4): DEF  FN GT16(ADDR) =  PEEK (ADDR) + 256 *  PEEK (ADDR + 1)
+3  print d$;"bload dhrlib": poke 1013,76: poke 1014,0: poke 1015,64: gosub 890
+4  print d$;"bload font1": print d$;"pr#3": poke 232,0: poke 233,96: &aux: poke 233,0
 6 lx = 1: ly = 1: dx = 8: dy = 6: yg = 2+16*ly: poke a0,lx: poke a0+1,ly: gosub 800
-7 poke 232,a1lo: poke 233,a2hi: tilNum = 0: tSize = 16*lx*ly: & vers: &pul > vers(0): &pul > vers(1): &pul > vers(2): goto 60
+7 poke 232,a1lo: poke 233,a2hi: tilNum = 0: tSize = 16*lx*ly: & vers: &pul > vers(0): &pul > vers(1): &pul > vers(2): gosub 50: gosub 8: goto 60
+
+8 text: home: print chr$(17): return: rem 40 column text home
+9 text: home: print chr$(18): &dhr: poke -16302,0: return: rem DHR home
 
 10 rem coords
 11 w$ = "   " + str$(x) + "," + str$(y): poke 233,0: &mode=0: &print w$ at 41-len(w$),1
@@ -31,9 +34,14 @@
 43 &print chr$(128) + chr$(132) + "=move, ESC=menu" at 1,22
 44 &print "p=preview, d=dither" at 1,23: goto 10
 
-60  text : home : ? "SDP II Tiler "vers(0)"."vers(1)"."vers(2): vtab 13: print "tiles=";tilNum;" bytes=";2+tilNum*tSize: l = 3: p = 6: w$ = "Select- ": b = 13
-61 pn$(0) = "New Set": pn$(1) = "Append Set": pn$(2) = "Save Set": pn$(3) = "Edit": pn$(4) = "View": pn$(5) = "Catalog": pn$(6) = "Exit": gosub 30
-62  on m + 1 goto 400,500,1000,1050,1100,1150,1200
+50 rem path setup
+51 print d$;"prefix": input wd$: print d$;"open sdpii.config": print d$;"read sdpii.config"
+52 input a$: input a$: input a$: input tile$: print d$;"close sdpii.config": if tile$="" then tile$=wd$
+53 print d$;"prefix ";tile$: return
+
+60  gosub 8: m = fre(0): ? "SDP II Tiler "vers(0)"."vers(1)"."vers(2): vtab 13: print "tiles=";tilNum;" bytes=";2+tilNum*tSize: l = 3: p = 7: w$ = "Select- ": b = 13
+61 pn$(0) = "New Set": pn$(1) = "Load Set": pn$(2) = "Append Set": pn$(3) = "Save Set": pn$(4) = "Edit": pn$(5) = "View": pn$(6) = "Catalog": pn$(7) = "Exit": gosub 30
+62  on m + 1 goto 400,550,560,600,1050,1100,1150,1200
 
 70 rem edit loop
 71  gosub 110: gosub 20: gosub 110: gosub 90
@@ -91,26 +99,48 @@
 212 &hcolor=15: gosub 120: gosub 140: gosub 40: return
 
 400  rem init tile set
-410  home: input "tile columns (14 pix each): ";lx: IF lx < 1 OR lx>8 THEN 410
+410  gosub 450: home: input "tile columns (14 pix each): ";lx: IF lx < 1 OR lx>8 THEN 410
 420  input "tile rows (8 pix each): ";ly: if ly<1 or ly>4 then 420
 430  poke a0,lx: poke a0+1,ly: tilNum = 0: tSize = lx*ly*16: yg = 2+16*ly: goto 60
 
-500  rem append tile set (assumes compatibility)
-501 home: input "tile path: ";a$: addr = a0 + tilNum*tSize: b1 = peek(addr): b2 = peek(addr+1)
-502 onerr goto 1049
-503 print chr$(4);"bload ";a$;",a";addr: lx = peek(addr): ly = peek(addr+1): tSize = lx*ly*16
-504 if addr>a0 then 506
-505 l = tilNum*tSize + fn gt16(48840): tilNum = (l-2)/tSize: goto 508
-506 poke addr,b1: poke addr+1,b2: if lx <> peek(a0) or ly <> peek(a0+1) then print "incompatible size": gosub 20: goto 508
-507 goto 505
-508 poke 216,0: goto 60
+450 rem confirm erase, if no pop and goto main
+451 if tilNum = 0 then return
+452 home: print "erase ";tilNum;" tiles (Y/N) ": gosub 20
+453 if a = ASC("Y") then return
+454 pop: print "aborting": get a$: goto 60
+
+460 rem confirm tiles, if none pop and goto main
+461 if tilNum > 0 then return
+462 home: print "no tiles ";: get a$: pop: goto 60
+
+500 rem edit path
+510 print: print d$;"prefix";tile$
+520 home: print "prefix: ";tile$: input "path: ";a$: return
+
+550  rem load tile set
+551 gosub 450: gosub 500: onerr goto 640
+553 print d$;"bload ";a$;",a";a0: poke 216,0: lx = peek(a0): ly = peek(a0+1): tSize = lx*ly*16: tilNum = (fn gt16(48840)-2)/tSize: goto 60
+
+560  rem append tile set
+561 if tilNum = 0 then home: print "nothing to append to": get a$: goto 60
+562 addr = a0 + tilNum*tSize: b1 = peek(addr): b2 = peek(addr+1)
+563 gosub 500: onerr goto 640
+564 print d$;"bload ";a$;",a";addr: poke 216,0: lx = peek(addr): ly = peek(addr+1): poke addr,b1: poke addr+1,b2
+565 if lx <> peek(a0) or ly <> peek(a0+1) then print "incompatible size": get a$: goto 60
+566 tilNum = tilNum + (fn gt16(48840)-2)/tSize: goto 60
+
+600 rem save tile set
+610 gosub 460: gosub 500
+620 onerr goto 640
+630 print d$;"bsave ";a$;",a";a0;",l";2+tilNum*tSize: poke 216,0: goto 60
+640 print "disk error": call -3288: get a$: poke 216,0: goto 60
 
 800 rem arrays
 810 dim pn$(9): dim cl(4): dim vers(2): for i = 0 to 4: cl(i) = 15: next
 820 return
 
 890 rem tile workspace
-891 a0 = peek (48825) + 256 * peek (48826) + peek (48840) + 256 * peek(48841): a1lo = a0: &mod(a1lo,256): a2hi = int(a0/256): return
+891 a0 = fn gt16(48825) + fn gt16(48840): a1lo = a0: &mod(a1lo,256): a2hi = int(a0/256): return
 
 892 rem check himem
 893 hm = peek (115) + 256 * peek (116): if hm < 9*4096 then print "HIMEM TOO LOW": end
@@ -128,21 +158,14 @@
 951 if ci>0 and a = 9 then ci = ci + 1
 960 goto 911
 
-1000 rem save tile set
-1010 home: input "tile path: ";a$
-1020 onerr goto 1049
-1021 print chr$(4);"bsave ";a$;",a";a0;",l";2+tilNum*tSize: poke 216,0: goto 60
-1049 print "disk error": call -3288: get a$: poke 216,0: goto 60
-
 1050  rem edit tile
-1051  home: input "tile id: ";id
-1052  if id=tilNum then tilNum = tilNum + 1: x=0: y=0: &dhr: goto 1070
-1053  if id>tilNum then print "next tile is ";tilNum: get a$: goto 60
-1060  &dhr: x = 0: y = 0: &tile #id at 1,1
-1070  poke -16302,0: gosub 40: &mode=0: &hcolor=15: gosub 120: &mode=128: gosub 140: goto 70
+1051  home: input "tile id: ";id: if id>tilNum then print "next tile is ";tilNum: get a$: goto 60
+1053  gosub 9: x = 0: y = 0: if id=tilNum then tilNum = tilNum + 1: goto 1070
+1060  &tile #id at 1,1
+1070  gosub 40: &mode=0: &hcolor=15: gosub 120: &mode=128: gosub 140: goto 70
 
 1100  rem overview
-1101  &dhr: poke -16302,0: x = 1: y = 1: for i = 1 to tilNum
+1101  gosub 460: gosub 9: x = 1: y = 1: for i = 1 to tilNum
 1102  poke 233,a2hi: &tile #i-1 at x,y: poke 233,0: &print str$(i-1) at x,y+ly: x = x + lx
 1103  if x>40 then x = 1: y = y + ly*2
 1104  next
@@ -152,13 +175,15 @@
 1113  goto 1110
 
 1150 rem catalog
-1160 text:home: print chr$(4);"catalog"
+1160 home: print d$;"cat"
 1170 input "enter prefix or bye: ";a$
 1180 if a$="bye" or a$="BYE" then 60
 1185 onerr goto 1199
-1190 print chr$(4);"prefix ";a$: poke 216,0: goto 1160
+1190 print d$;"prefix ";a$: poke 216,0: goto 1160
 1199 print "disk error try again": call -3288: goto 1170
 
 1200 rem quit
-1210 home: vtab 21: print "confirm (Y/N) ": get a$: if a$ = "Y" then end
+1210 home: vtab 21: print "confirm (Y/N) ": get a$: if a$ = "Y" then 1230
 1220 goto 60
+1230 print: print "restoring prefix...": print d$;"prefix";wd$
+1240 end

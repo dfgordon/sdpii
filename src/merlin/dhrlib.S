@@ -132,7 +132,8 @@ dispatch LDA   #$80
          JMP   (absPtr)
 
 * Test TXTPTR for match with zptr.
-* if matching return A=1/Z=0, else rewind TXTPTR and
+* Returns A=1/Z=0 if matching, A=0/Z=1 otherwise.
+* If not matching rewind TXTPTR and
 * advance zptr to next command.
 * string at (zptr) must terminate in [0,jmp_addr]
 tryCmd   LDA   #$01       ; suppose matched

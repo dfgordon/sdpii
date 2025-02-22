@@ -6,9 +6,9 @@
 #Requires -Version 7.4
 Set-Variable ErrorActionPreference "Stop"
 
-Set-Variable hd ($env:USERPROFILE + "\OneDrive\Documents\appleii\DISKS\microdrive-prodos-working.po")
-Set-Variable prodosPath "programming/merlin/sdpii/"
-Set-Variable basicFiles @("paint","tile","repaint","map")
+Set-Variable hd ($env:USERPROFILE + "\OneDrive\Documents\appleii\DISKS\microdrive.po")
+Set-Variable prodosPath "dev/sdpii/"
+Set-Variable basicFiles @("config","paint","tile","repaint","map")
 
 if (!(Test-Path build)) {
     mkdir ./build
@@ -30,9 +30,10 @@ if ($vers -ne $dhrlib_vers) {
 foreach ($f in $basicFiles) {
     a2kit delete -d $hd -f ($prodosPath + $f)
     Get-Content ("./src/basic/" + $f + ".bas") |
-     a2kit minify -t atxt --level 3 |
-      a2kit tokenize -a 2049 -t atxt |
-       a2kit put -d $hd -f ($prodosPath + $f) -t atok
+      a2kit renumber -b 0 -e 64000 -f 1 -s 1 -t atxt |
+        a2kit minify -t atxt --level 3 |
+          a2kit tokenize -a 2049 -t atxt |
+            a2kit put -d $hd -f ($prodosPath + $f) -t atok
 }
 
 # Assemble and put MAPLIB

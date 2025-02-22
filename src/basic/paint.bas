@@ -1,7 +1,7 @@
 1 gosub 892: lomem: 8*4096: if peek(-1088)=234 then text: home: print chr$(7);"65C02 REQUIRED": end
-2  print chr$(4);"bload dhrlib": poke 1013,76: poke 1014,0: poke 1015,64: gosub 890
-3  print chr$(4);"bload font1": print chr$(4);"pr#3": poke 232,0: poke 233,96: &aux: poke 233,0
-4  gosub 800: & vers: &pul > vers(0): &pul > vers(1): &pul > vers(2): goto 850
+2  d$ = chr$(4): print d$;"bload dhrlib": poke 1013,76: poke 1014,0: poke 1015,64: gosub 890
+3  print d$;"bload font1": print d$;"pr#3": poke 232,0: poke 233,96: &aux: poke 233,0
+4  gosub 800: & vers: &pul > vers(0): &pul > vers(1): &pul > vers(2): gosub 50: goto 850
 
 5 rem move cursor
 6  ds = 1: if peek(49249)>127 then ds = 10
@@ -34,6 +34,10 @@
 40  text : home : ? "SDP II Painter "vers(0)"."vers(1)"."vers(2): vtab 13: &tellp(addr,bit,cnt): ? "length=";addr-a0;".";8-bit: l = 3: p = 5: w$ = "Select- ": b = 13
 41 pn$(0) = "Edit": pn$(1) = "Load Pic": pn$(2) = "Save Pic": pn$(3) = "Append Pic": pn$(4) = "Clear": pn$(5) = "Exit": gosub 30
 42  on m + 1 goto 860,670,600,650,850,870
+
+50 rem path setup
+51 print d$;"prefix": input wd$: print d$;"open sdpii.config": print d$;"read sdpii.config": input a$: input art$: print d$;"close sdpii.config": if art$="" then art$=wd$
+53 print d$;"prefix ";art$: return
 
 60 rem edit loop
 61  gosub 110: gosub 20: gosub 110: gosub 5
@@ -147,13 +151,13 @@
 551 &seekp(a0,cnt-1): return
 
 600 rem save
-610 home: input "save path: ";a$
-611 &tellp(addr,bit,cnt)
-620 print: print chr$(4);"bsave ";a$;",A";a0;",L";addr-a0+2
-630 goto 40
+610 home: input "save path: ";a$: &tellp(addr,bit,cnt): onerr goto 640
+630 print: print d$;"bsave ";a$;",A";a0;",L";addr-a0+2: goto 40
+640 print "disk error": call -3288: get a$: poke 216,0: goto 40
 
 650 rem append
-660 &tellp(addr,bit,cnt): home: input "load path: ";a$: print chr$(4);"bload ";a$;",A";addr+1
+651 onerr goto 640
+660 &tellp(addr,bit,cnt): home: input "load path: ";a$: print d$;"bload ";a$;",A";addr+1
 661 &seekg(addr+1,0): &rec: &scan: &draw at 0,0: &end: &stop: goto 40
 
 670 rem load

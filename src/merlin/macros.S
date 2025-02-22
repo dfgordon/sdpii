@@ -1,5 +1,3 @@
-         DO    0
-
 swBank   MAC
          LDA   CHKAUX
          BMI   main
@@ -58,6 +56,7 @@ pl16     MAC
          STA   ]1
          <<<
 
+* `]2 = ]1 + ]2`, first argument is flex-mode
 add16    MAC
          CLC
          LDA   ]1
@@ -253,5 +252,3 @@ wrapR    MAC
          STZ   COLUMN
          FIN
 cont     <<<
-
-         FIN
