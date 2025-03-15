@@ -202,7 +202,7 @@ ampMod   JSR   binary16
          LDA   prod+1
          JSR   saveInt
          JMP   ampDone
-         
+
 * &bit (realvar,aexpr)
 ampBit   JSR   bitwise8
 :loop1   BEQ   :and
@@ -626,6 +626,34 @@ ampEnd   LDX   #0
          JSR   encExe
          JMP   ampDone
 
+xzoom    DFB   0,0
+yzoom    DFB   0
+cellBits DFB   0
+* &zoom(bits,x,y)
+ampZoom  JSR   CHKOPN
+         JSR   GETBYT
+         STX   cellBits
+         JSR   CHKCOM
+         JSR   GETNUM
+         JSR   bound
+         cp16  X00;xzoom
+         STX   yzoom
+         JSR   CHKCLS
+         LDX   #7
+:loop    PHX
+         LSR   cellBits
+         BCC   :nxt
+         cp16  xzoom;X0
+         LDA   yzoom
+         STA   Y0
+         LDX   #0
+         JSR   stroke
+:nxt     add16 #8;xzoom
+         PLX
+         DEX
+         BNE   :loop
+         RTS
+
          FIN
 
 ampDone  LDA   CHKAUX
@@ -647,7 +675,7 @@ cmosErr  JSR   BELL
 * Table of ampersands.
 * If one is a left-substring of another, longer string must go first.
 * Whenever one is added put it here alphabetically and check:
-* AV,AUX,BANK,BIT,DHR,MAP,MOD,MODE,MOVE,PSH,PUL,REC,SCAN,SEEKG,SEEKP,SCROLL,STROKE,TELLG,TELLP,TRAP,TILE,VERS
+* AV,AUX,BANK,BIT,DHR,MAP,MOD,MODE,MOVE,PSH,PUL,REC,SCAN,SEEKG,SEEKP,SCROLL,STROKE,TELLG,TELLP,TRAP,TILE,VERS,ZOOM
 ampTbl   ASC   'VERS',00
          DA    ampVers
          ASC   'DHR',00
@@ -690,6 +718,8 @@ ampTbl   ASC   'VERS',00
          DA    ampSeekp
          ASC   'TELLP',00
          DA    ampTellp
+         ASC   'ZOOM',00
+         DA    ampZoom
          FIN
 
          DO    _tile
@@ -734,7 +764,7 @@ ampTbl   ASC   'VERS',00
 
 absPtr   HEX   00,00
 
-version  DFB   0,0,0
+version  DFB   0,1,0
 
 noCMOS   ASC   "DHRLIB REQUIRES 65C02",00
 

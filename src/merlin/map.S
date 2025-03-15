@@ -47,17 +47,6 @@ south    DFB   4
 north    DFB   9
          FIN
 
-paint14  MAC
-         STZ   AUXMEM
-         LDA   (zptr)
-         STA   (ROWPTR),Y
-         INC   zptr
-         STZ   MAINMEM
-         LDA   (zptr)
-         INC   zptr
-         STA   (ROWPTR),Y
-         <<<
-
 scroll14 MAC
          STZ   AUXMEM
          LDA   (zptr),Y
@@ -76,31 +65,48 @@ scroll14 MAC
 * If DRAWPTR in ZP use stashed tiles in bank 2.
 * Returns starting X in COLUMN, preserves Y.
 fstTile  STX   COLUMN
-         STA   prod
-         STZ   prod+1
+         STA   prod+1
+         STZ   prod
          LDA   RDBNK2
-         cp16  DRAWPTR;zptr
+         cp16  DRAWPTR;:addr1+1
          BNE   :offset
-         mkptr $D400;zptr
-:offset  LUP   6
-         ASL   prod
-         ROL   prod+1
+         mkptr $D400;:addr1+1
+:offset  LUP   2
+         LSR   prod+1
+         ROR   prod
          --^
-         add16 prod;zptr
-         LDX   #$10       ; y-pixels
-         PHY
+         add16 prod;:addr1+1
+         cp16  :addr1+1;:addr2+1
          CLC
+         STZ   AUXMEM
+         LDX   #$1F
+         JSR   :dopage
+         STZ   MAINMEM
+         CLC
+         LDA   :addr1+1
+         ADC   #$20
+         STA   :addr1+1
+         STA   :addr2+1
+         LDX   #$1F
+         JSR   :dopage
+         LDA   RDROM
+         RTS
+
+:dopage  PHY
 :iniRow  LDA   rowTbLo,Y
          STA   ROWPTR
          LDA   rowTbHi,Y
          LDY   COLUMN
 :nxtRow  STA   ROWPTR+1
-         paint14
+:addr1   LDA   $FFFF,X    ; variable operand
+         STA   (ROWPTR),Y
          INY
-         paint14
+         DEX
+:addr2   LDA   $FFFF,X    ; variable operand
+         STA   (ROWPTR),Y
          DEY
          DEX
-         BEQ   :fin
+         BMI   :ret
          LDA   ROWPTR+1
          ADC   #$04
          BIT   #$1C
@@ -109,8 +115,7 @@ fstTile  STX   COLUMN
          PHY
          INY
          BRA   :iniRow
-:fin     LDA   RDROM
-         PLY
+:ret     PLY
          RTS
 
 * Draw map row starting at (stream) for cntMVw+0 tiles at X,Y.
@@ -266,7 +271,6 @@ inirow
 
 * Draw portion of map at (stream) from x1,x1+1 to x2,x2+1,
 * starting at the screen location X0,X0+1 (14x8 blocks, 0-based).
-* DX word non-zero triggers an update via scrolling via mvmap.
 * Map coords are signed 8-bit, negative numbers are OK.
 * Map dimensions are expected to be at (stream),(stream)+1.
 * Inputs are undefined upon completion.

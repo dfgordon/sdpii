@@ -12,7 +12,7 @@
 * ----------
 * ROWPTR - address of screen row
 * COLUMN - HGR column (0-39)
-* AUXMEM - state of MAIN/AUX soft switch
+* CHKAUX - state of MAIN/AUX soft switch
 * BITPOS - bitmap of 7-pixel cell
 * clrMask1 - even row pattern
 * clrMask2 - odd row pattern
@@ -641,7 +641,9 @@ stroke   ENT
 
          DO    _tile/2
 
-* update MVSRC to the address of tile fac1.
+* update MVSRC to the address of tile fac1,
+* set prod to bytes per page,
+* set prod+1 to normal or inverse mask.
 * X00 = column pairs, fac2 = rows, MVSRC = address of first tile.
 tileptr  JSR   mulbb
          cp16  prod;glyph ; use glyph as temp
@@ -653,6 +655,18 @@ tileptr  JSR   mulbb
 :dbl     ASL   prod
          ROL   prod+1     ; prod = tile offset
          add16 prod;MVSRC
+         STZ   prod+1
+         LDA   MODE
+         BPL   :size
+         DEC   prod+1     ; prod+1 = mask
+:size    LDA   fac2
+         LDX   X00
+         CLC
+:add2    DEX
+         BEQ   :fin
+         ADC   fac2
+         BRA   :add2
+:fin     STA   prod       ; prod = size per page
          RTS
 
 * Load standard 14x8 glyph from stashed font.
@@ -724,7 +738,7 @@ tile     ENT
          STA   fac2
          BRA   :off2
 :ldglyph JSR   ldglyph
-         mkptr glyph;zptr
+         mkptr glyph;:rep+1
          BRA   :iniLup
 :offset  LDA   (MVSRC)
          inc16 MVSRC
@@ -734,54 +748,53 @@ tile     ENT
          ASL
          ASL
          ASL
-         STA   fac2       ; pixel-rows, also used later
+         STA   fac2       ; pixel-rows
 :off2    JSR   tileptr
-         cp16  MVSRC;zptr
+         cp16  MVSRC;:rep+1
 * tile is loaded and/or referenced
 :iniLup  PLY
-         LDA   COLUMN
-         STA   fac1
-         STZ   prod       ; normal
-         LDA   MODE
-         BPL   :iniRow
-         LDA   #$FF
-         STA   prod       ; inverse
-* loop over rows
+         STZ   AUXMEM
+         LDX   prod
+         DEX
+         JSR   :dopage
+         STZ   MAINMEM
+         addu8 prod;:rep+1
+         LDX   prod
+         DEX
+         JSR   :dopage
+         LDA   RDROM
+         RTS
+* subroutine to paint current page
+:dopage  PHY
+         PHY
 :iniRow  LDA   rowTbLo,Y
          STA   ROWPTR
          LDA   rowTbHi,Y
-:ezRow   STA   ROWPTR+1
-         LDA   fac1
-         STA   COLUMN
-         LDX   X00
-         PHY
+:ezRow   LDY   COLUMN
+         STA   ROWPTR+1
+         LDA   X00
+         STA   fac1
 * loop over columns
-:loopx   STZ   AUXMEM
-:rep     LDA   (zptr)
-         EOR   prod
-         LDY   COLUMN
+:rep     LDA   $FFFF,X    ; variable operand
+         EOR   prod+1
          paint
-         inc16 zptr
-         LDA   CHKAUX
-         BPL   :cont
-         STZ   MAINMEM
-         BRA   :rep
-:cont    DEX
-         BEQ   :nxtRow
-         INC   COLUMN
-         BRA   :loopx
+         INY
+         DEX
+         BMI   :fin
+         DEC   fac1
+         BNE   :rep
 * prepare for next row
-:nxtRow  PLY
-         DEC   fac2
-         BEQ   :fin
-         CLC
+:nxtRow  CLC
          LDA   ROWPTR+1
          ADC   #$04
          BIT   #$1C
          BNE   :ezRow
+         PLY
          INY
+         PHY
          BRA   :iniRow
-:fin     LDA   RDROM
+:fin     PLY
+         PLY
          RTS
 
 * print str with length A and ptr INDEX at X,Y. zero-indexing.

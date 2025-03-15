@@ -1,12 +1,14 @@
 1 gosub 892: lomem: 8*4096: if peek(-1088)=234 then text: home: print chr$(7);"65C02 REQUIRED": end
 2  d$ = chr$(4): print d$;"bload dhrlib": poke 1013,76: poke 1014,0: poke 1015,64: gosub 890
 3  print d$;"bload font1": print d$;"pr#3": poke 232,0: poke 233,96: &aux: poke 233,0
-4  gosub 800: & vers: &pul > vers(0): &pul > vers(1): &pul > vers(2): gosub 50: goto 850
+4  gosub 800: & vers: &pul > vers(0): &pul > vers(1): &pul > vers(2): gosub 50: gosub 8: goto 850
 
-5 rem move cursor
-6  ds = 1: if peek(49249)>127 then ds = 10
-7  x = x - ds*(a=8) + ds*(a=21): y = y - ds*(a=11) + ds*(a=10): &mod(x,560): &mod(y,192): if pr=5 then gosub 17
-8  return
+5  ds = 1: if peek(49249)>127 then ds = 10: rem move cursor
+6  x = x - ds*(a=8) + ds*(a=21): y = y - ds*(a=11) + ds*(a=10): &mod(x,560): &mod(y,192): if pr=5 then gosub 17
+7  return
+
+8 text: home: print chr$(17);: return: rem 40 column text home
+9 text: home: print chr$(18);: &dhr: poke -16302,0: return: rem DHR home
 
 10 rem edit prompt
 11 &tellp(addr,bit,cnt): &clear 1,24: if pr > 5 then pr = 1
@@ -31,13 +33,13 @@
 35  if a =  10 or a =  21 then n = m: m = m + 1: if m > p then m = 0
 36  htab 4: vtab n + l: print pn$(n): inverse: htab 4: vtab m + l: print pn$(m): normal: goto 32
 
-40  text : home : ? "SDP II Painter "vers(0)"."vers(1)"."vers(2): vtab 13: &tellp(addr,bit,cnt): ? "length=";addr-a0;".";8-bit: l = 3: p = 5: w$ = "Select- ": b = 13
-41 pn$(0) = "Edit": pn$(1) = "Load Pic": pn$(2) = "Save Pic": pn$(3) = "Append Pic": pn$(4) = "Clear": pn$(5) = "Exit": gosub 30
+40 rem main menu
+41  gosub 8: ? "SDP II Painter "vers(0)"."vers(1)"."vers(2): l = 3: p = 5: vtab l+p+4: &tellp(addr,bit,cnt): ? "length=";addr-a0;".";8-bit: w$ = "Select- ": b = 13: gosub 30
 42  on m + 1 goto 860,670,600,650,850,870
 
 50 rem path setup
-51 print d$;"prefix": input wd$: print d$;"open sdpii.config": print d$;"read sdpii.config": input a$: input art$: print d$;"close sdpii.config": if art$="" then art$=wd$
-53 print d$;"prefix ";art$: return
+51 print d$"prefix": input wd$: print d$"open sdpii.config": print d$"read sdpii.config": input a$: input art$: print d$"close sdpii.config": if art$="" then art$=wd$
+53 print d$"prefix "art$: return
 
 60 rem edit loop
 61  gosub 110: gosub 20: gosub 110: gosub 5
@@ -141,7 +143,7 @@
 
 500 rem undo
 510 if cnt = 0 then return
-520 &seekp(a0,cnt-1): &rec: &end: &stop: &dhr: poke -16302,0: &seekg(a0,0): &draw at 0,0: gosub 880: gosub 10: return
+520 &seekp(a0,cnt-1): &rec: &end: &stop: gosub 9: &seekg(a0,0): &draw at 0,0: gosub 880: gosub 10: return
 
 540 rem get last cmd
 541 if cnt<1 then lastCmd = 0: return
@@ -169,15 +171,14 @@
 703  pop: print: print "canceled. ";: gosub 20: goto 40
 
 800 rem array setup
-810 dim cl(4): dim x(3): dim y(3): dim pn$(9): dim cmd$(7): dim vers(2)
-820 restore: for i = 0 to 7: read cmd$(i): next: for i = 0 to 4: cl(i) = 15: next
-840 return
+810 dim cl(4), x(3), y(3), pn$(9), cmd$(7), vers(2): restore: for i = 0 to 7: read cmd$(i): next: for i = 0 to 4: cl(i) = 15: next
+820 pn$(0) = "Edit": pn$(1) = "Load Pic": pn$(2) = "Save Pic": pn$(3) = "Append Pic": pn$(4) = "Clear": pn$(5) = "Exit": return
 
 850 rem new pic
 851 gosub 700: x = 280: y = 80: ps = 0: pm = 0: br = 0: &seekg(a0,0): &seekp(a0,0): poke a0,0: addr = a0: bit = 8: cnt = 0: goto 40
 
 860 rem edit
-861 &dhr: poke -16302,0: &seekg(a0,0): &draw at 0,0: gosub 880: gosub 10: pr = 1: goto 60
+861 gosub 9: &seekg(a0,0): &draw at 0,0: gosub 880: gosub 10: pr = 1: goto 60
 
 870 rem quit
 871 home: vtab 21: print "confirm (Y/N) ": get a$: if a$ = "Y" then end
@@ -224,7 +225,7 @@
 
 1150 rem cut range m..n
 1151 &seekg(a0,n): &seekp(a0,m): &rec: &scan: &draw at 0,0: &end: &stop
-1180 &dhr: poke -16302,0: &seekg(a0,0): &draw at 0,0: gosub 880: gosub 10: return: rem cleanup and return
+1180 gosub 9: &seekg(a0,0): &draw at 0,0: gosub 880: gosub 10: return: rem cleanup and return
 
 9990 data end,clr,mod,mov,plt,lin,trp,str
 

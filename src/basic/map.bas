@@ -5,8 +5,8 @@
 5 vwidth = 15: vheight = 11: gosub 800: gosub 1300
 6 &vers: &pul > vers(0): &pul > vers(1): &pul > vers(2): gosub 50: gosub 8: goto 70
 
-8 text: home: print chr$(17): return: rem 40 column text home
-9 text: home: print chr$(18): &dhr: poke -16302,0: return: rem DHR home
+8 text: home: print chr$(17);: return: rem 40 column text home
+9 text: home: print chr$(18);: &dhr: poke -16302,0: return: rem DHR home
 
 10 rem tile selection
 11 pd = pd + 1: &mod(pd,tcount): &tile #pd at 39,21: return
@@ -41,8 +41,8 @@
 64 rem coords
 65 w$ = "  " + str$(x) + "," + str$(y): &tile #pd at 39,21: &print w$ at 41-len(w$),24: i = fre(0): return
 
-70  gosub 8: m = fre(0): print "SDP II Mapper "vers(0)"."vers(1)"."vers(2): vtab 13: print "size=";lx;",";ly: print "tiles=";tcount: l = 3: p = 7: w$ = "Select- ": b = 13
-71 pn$(0) = "Load Tiles": pn$(1) = "New Map": pn$(2) = "Load Map": pn$(3) = "Save Map": pn$(4) = "Edit": pn$(5) = "Settings": pn$(6) = "Catalog": pn$(7) = "Exit": gosub 30
+70  gosub 8: m = fre(0): print "SDP II Mapper "vers(0)"."vers(1)"."vers(2): l = 3: p = 7: vtab l+p+4: print "size=";lx;",";ly: print "tiles=";tcount
+71 w$ = "Select- ": b = 13: gosub 30
 72  on m + 1 goto 450,400,500,1000,1050,900,1150,1200
 
 80 rem edit loop
@@ -127,8 +127,8 @@
 702 return
 
 800 rem arrays
-810  dim pn$(9): dim vers(2)
-820  return
+810  dim pn$(9), vers(2): pn$(0) = "Load Tiles": pn$(1) = "New Map": pn$(2) = "Load Map": pn$(3) = "Save Map"
+820  pn$(4) = "Edit": pn$(5) = "Settings": pn$(6) = "Catalog": pn$(7) = "Exit": return
 
 890 rem map workspace
 891 a0 = fn gt16 (48825) + fn gt16 (48840): a1lo = a0: &mod(a1lo,256): a2hi = int(a0/256): return
