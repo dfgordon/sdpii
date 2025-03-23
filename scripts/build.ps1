@@ -4,6 +4,13 @@
 
 #Requires -Version 7.4
 Set-Variable ErrorActionPreference "Stop"
+Set-Variable PSNativeCommandUseErrorActionPreference $true
+
+$min_a2kit_vers = "3.7.0"
+$a2kit_vers = (a2kit -V).Split()[1]
+if ([Version]$a2kit_vers -lt [Version]$min_a2kit_vers) {
+    Write-Error ("requires a2kit v" + $min_a2kit_vers)
+}
 
 Set-Variable prodosPath ""
 Set-Variable floppy "./build/sdpii.woz"
@@ -18,7 +25,11 @@ if (!(Test-Path ./build)) {
 # Get the version from the WOZ metadata
 $vers = (Get-Content ./scripts/meta.json | ConvertFrom-Json).woz2.meta.version
 # Check DHRLIB version
-(Get-Content ./src/merlin/dhrlib.S -Raw) -match 'version\s+DFB\s+([0-9]+,[0-9]+,[0-9]+)'
+$matching = (Get-Content ./src/merlin/dhrlib.S -Raw) -match 'version\s+DFB\s+([0-9]+,[0-9]+,[0-9]+)'
+if (!$matching) {
+    Write-Error "DHRLIB version data missing"
+    exit 1
+}
 $dhrlib_vers = $Matches[1] -replace ',','.'
 if ($vers -ne $dhrlib_vers) {
     Write-Error ("DHRLIB version is " + $dhrlib_vers + ", but meta version is " + $vers)
@@ -63,6 +74,9 @@ Move-Item ./src/merlin/dhrlib ./build/dhrlib
 # Copy over file images
 a2kit get -f ./fimg/font1.json | a2kit put -d $floppy -f font1 -t any
 a2kit get -f ./src/basic/config.txt | a2kit put -d $floppy -f sdpii.config -t txt
+
+# Verify
+./scripts/verify-distro -disk $floppy -path "/SDPII/"
 
 # Cleanup
 Remove-Item ./src/merlin/_FileInformation.txt -Force

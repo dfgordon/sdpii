@@ -34,8 +34,9 @@
 36  htab 4: vtab n + l: print pn$(n): inverse: htab 4: vtab m + l: print pn$(m): normal: goto 32
 
 40 rem main menu
-41  gosub 8: ? "SDP II Painter "vers(0)"."vers(1)"."vers(2): l = 3: p = 5: vtab l+p+4: &tellp(addr,bit,cnt): ? "length=";addr-a0;".";8-bit: w$ = "Select- ": b = 13: gosub 30
-42  on m + 1 goto 860,670,600,650,850,870
+41  gosub 8: ? "SDP II Painter "vers(0)"."vers(1)"."vers(2): l = 3: p = 5: vtab l+p+4
+42  &tellp(addr,bit,cnt): ? "length=";addr-a0;".";8-bit: w$ = "Select- ": b = 13: gosub 30
+43  on m + 1 goto 860,670,600,650,850,1200
 
 50 rem path setup
 51 print d$"prefix": input wd$: print d$"open sdpii.config": print d$"read sdpii.config": input a$: input art$: print d$"close sdpii.config": if art$="" then art$=wd$
@@ -180,10 +181,6 @@
 860 rem edit
 861 gosub 9: &seekg(a0,0): &draw at 0,0: gosub 880: gosub 10: pr = 1: goto 60
 
-870 rem quit
-871 home: vtab 21: print "confirm (Y/N) ": get a$: if a$ = "Y" then end
-872 goto 40
-
 880 rem sync parameters
 881 pm = peek(249): &and(pm,128): cl(1) = peek(28): &and(cl(1),15): cl(2) = int(peek(28)/16): cl(3) = peek(228): &and(cl(3),15): cl(4) = int(peek(228)/16)
 882 &tellg(addr,bit,cnt): &seekp(a0,cnt): return
@@ -226,6 +223,12 @@
 1150 rem cut range m..n
 1151 &seekg(a0,n): &seekp(a0,m): &rec: &scan: &draw at 0,0: &end: &stop
 1180 gosub 9: &seekg(a0,0): &draw at 0,0: gosub 880: gosub 10: return: rem cleanup and return
+
+1200 rem quit
+1210 home: vtab 21: print "confirm (Y/N) ": get a$: if a$ = "Y" then 1230
+1220 goto 40
+1230 print: print "restoring prefix...": print d$;"prefix";wd$
+1260 end
 
 9990 data end,clr,mod,mov,plt,lin,trp,str
 

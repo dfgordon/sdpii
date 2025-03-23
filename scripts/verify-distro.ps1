@@ -1,17 +1,22 @@
-# PowerShell script to verify floppy distro
-# Run from root project directory
-# (from VSCode just push button)
+# PowerShell script to verify distribution.
+# Normally run as part of build.
 
 #Requires -Version 7.4
-Set-Variable ErrorActionPreference "Stop"
 
-Set-Variable floppy "./build/sdpii.woz"
+param (
+	[Parameter(Mandatory)]
+	[string]$disk,
+    [Parameter(Mandatory)]
+    [string]$path
+)
+
+Set-Variable ErrorActionPreference "Stop"
 
 function Get-ProdosEof {
     param (
         $FileName
     )
-    $eof = (a2kit get -d $floppy -f $FileName -t any | ConvertFrom-Json).eof
+    $eof = (a2kit get -d $disk -f ($path + $FileName) -t any | ConvertFrom-Json).eof
     $eof = $eof.Substring(4,2) + $eof.Substring(2,2) + $eof.Substring(0,2)
     [int]("0x"+$eof)
 }

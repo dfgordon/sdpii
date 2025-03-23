@@ -106,12 +106,12 @@
 450 rem load tiles
 451  home: if a0 + 6 + lx*ly >= 24576 then print "save and restart program first": get a$: goto 70
 460  gosub 300: onerr goto 1049
-462  print d$;"bload ";a$;",a$6000": poke 233,96: &bank: poke 233,0
-463  tcount = (fn gt16 (48840) - 2) / 64
-470  print "tiles stashed in bank 2 at $D400"
-471  print "saving displaced memory..."
-472  print d$;"bsave ";wd$;"d400.bank2.save,a$6002,l$c00"
-499  tiles = 1: poke 216,0: goto 70
+462  print d$;"bload ";a$;",a$6000": if peek(24576) <> 2 or peek(24577) <> 2 then print "incompatible tiles": get a$: poke 216,0: goto 70
+470  poke 233,96: &bank: poke 233,0: tcount = (fn gt16 (48840) - 2) / 64
+471  print "tiles stashed in bank 2 at $D400"
+472  print "saving displaced memory..."
+473  print d$;"bsave ";wd$;"d400.bank2.save,a$6002,l$c00"
+474  tiles = 1: poke 216,0: goto 70
 
 500 rem load map
 501  gosub 600: gosub 310: onerr goto 1049

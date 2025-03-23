@@ -116,8 +116,10 @@
 202 &mode=128: gosub 130: gosub 40: return
 
 210 rem dither
-211 ci = 1: &mode=0: gosub 900: &hcolor=cl(1),cl(2),cl(3),cl(4): &clear 1,1 to 40,24: &trap at 0,lx*14-1,0 to 0,lx*14-1,ly*8-1
-212 &hcolor=15: gosub 120: gosub 130: gosub 40: return
+211 ci = 1: &mode=0: gosub 900: if a = 27 then 214
+212 &hcolor=cl(1),cl(2),cl(3),cl(4): &clear 1,1 to 40,24: &trap at 0,lx*14-1,0 to 0,lx*14-1,ly*8-1
+213 &hcolor=15: gosub 120: gosub 130
+214 gosub 40: return
 
 440 rem confirm dispose clipboard, result in a
 441 if buf%(1) <> 0 then &clear 1,24: &print "drop current clipboard (Y/ESC)" at 1,24: gosub 20: if a = asc("Y") or a = 27 then return
@@ -154,7 +156,7 @@
 562 addr = a0 + tilNum*tSize: b1 = peek(addr): b2 = peek(addr+1)
 563 gosub 470: onerr goto 640
 564 print d$;"bload ";a$;",a";addr: poke 216,0: lx = peek(addr): ly = peek(addr+1): poke addr,b1: poke addr+1,b2
-565 if lx <> peek(a0) or ly <> peek(a0+1) then print "incompatible size": get a$: goto 60
+565 if lx <> peek(a0) or ly <> peek(a0+1) then lx = peek(a0): ly = peek(a0+1): print "incompatible size": get a$: goto 60
 566 tilNum = tilNum + (fn gt16(48840)-2)/tSize: goto 60
 
 600 rem save tile set
@@ -176,12 +178,12 @@
 894 return
 
 900 rem color picker
-901 &clear 1,24: a$ = chr$(130) + chr$(131) + ", SPC": if ci > 0 then a$ = a$ + ", TAB"
+901 &clear 1,24: a$ = "ESC, " + chr$(130) + chr$(131) + ", SPC": if ci > 0 then a$ = a$ + ", TAB"
 902 poke 233,0: &print a$ at 3+2*(ci>0),24: poke 233,a2hi
 911 &mod(cl(0),16): if ci = 0 then 930
 914 if ci>4 then ci = 1
 920 cl(ci) = cl(0): &hcolor=cl(1),cl(2),cl(3),cl(4): &trap at 28,43,184 to 28,43,191
-930 &hcolor=cl(ci): &trap at 0,15,184 to 0,15,191: gosub 20: if a = 32 then return
+930 &hcolor=cl(ci): &trap at 0,15,184 to 0,15,191: gosub 20: if a = 32 or a = 27 then return
 940 if a = 8 then cl(0) = cl(0) - 1: goto 911
 950 if a = 21 then cl(0) = cl(0) + 1: goto 911
 951 if ci>0 and a = 9 then ci = ci + 1

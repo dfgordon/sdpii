@@ -82,4 +82,4 @@ The workspaces are dynamically allocated based on the actual size of DHRLIB or M
 
 ### Minifier
 
-The BASIC programs are supposed to be minified before being deployed.  If this step is skipped, results are undefined. The build scripts are designed to take care of this.
+The BASIC programs are supposed to be minified before being deployed.  The build scripts are designed to take care of this, and will check to see if the minified program sizes are within bounds.
