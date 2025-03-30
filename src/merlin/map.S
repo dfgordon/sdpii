@@ -38,7 +38,7 @@ endMap   DFB   0,0        ; total map dimensions in tiles
 endScrn  DFB   0,0        ; end of view in screen coords (cells)
 rowAdv   DA    0
 avatar   ENT
-         DFB   15
+         DFB   0
 ghost    DFB   0
 * order matters : west,east,south,north
 west     DFB   0
@@ -227,10 +227,21 @@ inirow
          LSR
          CLC
          ADC   x1+1       ; A = vertical map coord
-         BMI   :north
          CMP   endMap+1
-         BCS   :south
-         LDA   x1
+         BCC   :chkEW
+         CMP   #$F0
+         BCC   :south
+:north   LDA   north
+         STA   ghost
+         BRA   :allout
+:south   LDA   south
+         STA   ghost
+:allout  LDA   #$FF
+         STA   fac1
+         STA   fac2
+         RTS
+
+:chkEW   LDA   x1
          BMI   :west
          LDA   x2
          DEC
@@ -258,15 +269,6 @@ inirow
          BMI   :rloop
          LDA   east
          STA   ghost
-         RTS
-:north   LDA   north
-         STA   ghost
-         BRA   :allout
-:south   LDA   south
-         STA   ghost
-:allout  LDA   #$FF
-         STA   fac1
-         STA   fac2
          RTS
 
 * Draw portion of map at (stream) from x1,x1+1 to x2,x2+1,

@@ -764,7 +764,7 @@ ampTbl   ASC   'VERS',00
 
 absPtr   HEX   00,00
 
-version  DFB   0,1,1
+version  DFB   0,2,0
 
 noCMOS   ASC   "DHRLIB REQUIRES 65C02",00
 
