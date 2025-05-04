@@ -217,8 +217,9 @@
 1132 if a = 27 then 1180
 1133 goto 1120
 
-1140 &mode=128: &move to x0,y0: &draw 1 at 0,0: cmd = peek(249): &mod(cmd,8): if cmd <> 5 then x0 = peek(224) + peek(225)*256: y0 = peek(226): rem highlight part
-1141 &seekg(a0,n): w$ = str$(m) + " " + str$(n) + " " + cmd$(cmd): &mode=cmd: &clear 28,24 to 32,24: &print w$ at 40-len(w$),24: return
+1140 rem highlight part
+1141 &mode=128: &move to x0,y0: &draw 1 at 0,0: cmd = peek(249): &mod(cmd,8): if cmd <> 5 then x0 = peek(224) + peek(225)*256: y0 = peek(226)
+1142 &seekg(a0,n): w$ = str$(m) + " " + str$(n) + " " + cmd$(cmd): &mode=cmd: &clear 28,24 to 32,24: &print w$ at 40-len(w$),24: return
 
 1150 rem cut range m..n
 1151 &seekg(a0,n): &seekp(a0,m): &rec: &scan: &draw at 0,0: &end: &stop

@@ -1,8 +1,8 @@
 1 gosub 895: lomem: 35584: if peek(-1088)=234 then text: home: print chr$(7);"65C02 PROCESSOR REQUIRED": end
-2  d$ = chr$(4): def  fn gt16(addr) =  peek (addr) + 256 *  peek (addr + 1)
+2  d$ = chr$(4): def  fn gt16(addr) =  peek (addr) + 256 *  peek (addr + 1): def fn odd(x) = int(x/2) <> x/2
 3  print d$;"bload maplib": poke 1013,76: poke 1014,0: poke 1015,64: gosub 890
 4  print d$;"bload font1": print d$;"pr#3": poke 232,0: poke 233,96: &aux: poke 233,0
-5 vwidth = 15: vheight = 11: gosub 800: gosub 1300
+5 vwidth = 15: vheight = 11: xhalf = 7: yhalf = 5: x00 = 1: y00 = 1: gosub 800: gosub 1300
 6 &vers: &pul > vers(0): &pul > vers(1): &pul > vers(2): gosub 40: gosub 8: goto 60
 
 8 text: home: print chr$(17);: return: rem 40 column text home
@@ -27,12 +27,12 @@
 35  if a =  10 or a =  21 then n = m: m = m + 1: if m > p then m = 0
 36  htab 4: vtab n + l: print pn$(n): inverse: htab 4: vtab m + l: print pn$(m): normal: goto 32
 
-40 rem path setup
+40 rem read configuration
 41 print d$;"prefix": input wd$: print d$;"open sdpii.config": print d$;"read sdpii.config"
-42 input a$: input a$: input map$: input tile$: print d$;"close sdpii.config"
-43 if map$="" then map$=wd$
+42 input a: input a$: input map$: input tile$: if a > 0 then input avtar: input bound: input inner
+43 print d$;"close sdpii.config": if map$="" then map$=wd$
 44 if tile$="" then tile$=wd$
-45 return
+45 & av #avtar: return
 
 50 rem edit prompt
 51 &clear 1,23 to 40,24
@@ -63,7 +63,7 @@
 91  ds = 1 + (peek(49249)>127)*3: p = a9 + 6 + x + y*lx: if peek (49250)>127 then poke p,pd
 92  x = x + dx*ds: y = y + dy*ds: &mod(x,lx): &mod(y,ly)
 96  poke 0,a1lo: poke 1,a2hi
-99  &map at x-int(vwidth/2),y-int(vheight/2) to x+int(vwidth/2),y+int(vheight/2) at 1,1: gosub 54: return
+99  &map at x-xhalf,y-yhalf to x+xhalf,y+yhalf at x00,y00: gosub 54: return
 
 100 rem place tile(s)
 101 if peek(49249)>127 then 104
@@ -96,11 +96,11 @@
 410  gosub 600: home: input "map columns: ";lx: if lx<16 or lx>128 then 410
 411  input "map rows: ";ly: if ly<16 or ly>128 then home: goto 411
 412  input "map levels: ";lz: if lz<1 or lx*ly*lz > 16384 then home: goto 412
-421  input "starting tile: ";a: if a<0 or a>47 then home: goto 421
+421  print "starting tile:": temp$ = str$(inner): gosub 950: if a<0 or a>47 then home: goto 421
 422  x = a0 + 6: y = a0 + (6+lx*ly)*lz - 1
 423  if y >= 35584 then print chr$(7);"not enough workspace": get a$: goto 410
 430  print "fill first page...": for addr = x to x + 255: poke addr,a: next: a = 2: addr = addr - 256
-431  htab 1: vtab 5: print "copy to page ";a
+431  htab 1: vtab 7: print "copy to page ";a
 432  poke 60,addr - 256*int(addr/256): poke 61,int(addr/256): addr = addr + 255
 433  poke 62,addr - 256*int(addr/256): poke 63,int(addr/256): poke 66,peek(60): poke 67,peek(61)+1: addr = addr + 1
 434  call 768: if addr + 256 + 255 > y then 440
@@ -110,7 +110,7 @@
 442 for i = 1 to lz: gosub 445: gosub 870: next: gosub 860: goto 60
 
 445 rem setup level header
-446 poke a9,lx: poke a9+1,ly: poke a9+2,0: poke a9+3,0: poke a9+4,0: poke a9+5,0: return 
+446 poke a9,lx: poke a9+1,ly: poke a9+2,bound: poke a9+3,bound: poke a9+4,bound: poke a9+5,bound: return 
 
 450 rem load tiles
 451  home: if a0 + (6 + lx*ly)*lz >= 24576 then print "save and restart program first": get a$: goto 60
@@ -160,10 +160,14 @@
 897 return
 
 900 rem settings
-910 home: input "view width ";vwidth: if vwidth<5 or vwidth>15 or vwidth/2 = int(vwidth/2) then 910
-920 home: input "view height ";vheight: if vheight<5 or vheight>11 or vheight/2 = int(vheight/2) then 920
-930 home: input "avatar tile ";avtar: if avtar<0 or avtar>47 then 930
-940 &av #avtar: goto 60
+910 home: print "view width": temp$ = str$(vwidth): gosub 950: vwidth = a: if vwidth<5 or vwidth>15 or vwidth/2 = int(vwidth/2) then 910
+920 home: print "view height": temp$ = str$(vheight): gosub 950: vheight = a: if vheight<5 or vheight>11 or vheight/2 = int(vheight/2) then 920
+930 home: print "avatar tile": temp$ = str$(avtar): gosub 950: avtar = a: if avtar<0 or avtar>47 then 930
+940 &av #avtar: xhalf = int(vwidth/2): x00 = 16 - vwidth: yhalf = int(vheight/2): y00 = 12 - vheight: goto 60
+
+950 rem edit number
+951 print " ";temp$: call -868
+952 vtab peek (37): htab 1: input a$: a = val(a$): return
 
 1000 rem save map
 1010 gosub 700: gosub 310: onerr goto 1049

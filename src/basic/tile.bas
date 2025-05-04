@@ -47,13 +47,15 @@
 64  on m + 1 goto 500,550,560,600,1000,1100,1150,1200
 
 70 rem edit loop
-71  gosub 110: gosub 20: gosub 110: gosub 90
-72  if a = asc("P") then gosub 200: goto 70
-73  if a = 32 then gosub 110: goto 70
-74  if a = 27 then  gosub 130: home: vtab 21 : goto 60
+71  gosub 110: gosub 20: if a = 32 then 70
+72  gosub 90
+73  if a = asc("P") then gosub 200: goto 70
+74  if a = 27 then poke 233,0: gosub 430: goto 78
 75  if a = asc("D") then gosub 210: goto 70
 76  if a = 9 then pr = pr + 1: gosub 40
 77  goto 70
+78  if a = asc("Y") then gosub 130
+79  poke 233,a2hi: goto 60
 
 80 rem select tile >= i0
 81 id = i0: poke 233,0
@@ -63,7 +65,7 @@
 86 goto 82
 
 90 rem move cursor
-91  ds = 1 + (peek(49249)>127)*7: if peek(49250)>127 then gosub 110
+91  ds = 1 + (peek(49249)>127)*7: if peek(49250)<128 then gosub 110
 92  if a = 8 then x = x - ds: &mod(x,lx*14)
 93  if a = 11 then y = y - ds: &mod(y,ly*8)
 94  if a = 21 then x = x + ds: &mod(x,lx*14)
@@ -120,6 +122,11 @@
 212 &hcolor=cl(1),cl(2),cl(3),cl(4): &clear 1,1 to 40,24: &trap at 0,lx*14-1,0 to 0,lx*14-1,ly*8-1
 213 &hcolor=15: gosub 120: gosub 130
 214 gosub 40: return
+
+430 rem confirm scan changes, result in a
+431 &mode=0: &clear 1,24: &print "keep changes (Y/N)" at 1,24: gosub 20: if a <> asc("Y") and a <> asc("N") then 431
+432 &mode=128: if a = asc("N") and nwtile = 1 then tilNum = tilNum - 1 
+433 return
 
 440 rem confirm dispose clipboard, result in a
 441 if buf%(1) <> 0 then &clear 1,24: &print "drop current clipboard (Y/ESC)" at 1,24: gosub 20: if a = asc("Y") or a = 27 then return
@@ -190,9 +197,9 @@
 960 goto 911
 
 1000 rem add tile
-1001 id = tilNum: gosub 9: tilNum = tilNum + 1: goto 1053
+1001 id = tilNum: gosub 9: tilNum = tilNum + 1: nwtile = 1: goto 1053
 1050  rem edit tile
-1052  gosub 9: &tile #id at 1,1
+1052  gosub 9: &tile #id at 1,1: nwtile = 0
 1053  x = 0: y = 0: &mode=0: &hcolor=15: gosub 120: gosub 130: pr = 1: gosub 40: goto 70
 
 1100  rem modify tile(s)

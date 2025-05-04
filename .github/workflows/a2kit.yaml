@@ -36,3 +36,13 @@ jobs:
         cat ./src/basic/paint.bas | ./a2kit verify -t atxt
         cat ./src/basic/repaint.bas | ./a2kit verify -t atxt
         cat ./src/basic/tile.bas | ./a2kit verify -t atxt
+    - name: syntax check Merlin
+      run: |
+        cat ./src/merlin/bitstream.S | ./a2kit verify -t mtxt -w ~+/src/merlin --config "{\"version\":\"Merlin 32\"}"
+        cat ./src/merlin/core.S | ./a2kit verify -t mtxt -w ~+/src/merlin --config "{\"version\":\"Merlin 32\"}"
+        cat ./src/merlin/decode.S | ./a2kit verify -t mtxt -w ~+/src/merlin --config "{\"version\":\"Merlin 32\"}"
+        cat ./src/merlin/dhrlib.S | ./a2kit verify -t mtxt -w ~+/src/merlin --config "{\"version\":\"Merlin 32\"}"
+        cat ./src/merlin/draw.S | ./a2kit verify -t mtxt -w ~+/src/merlin --config "{\"version\":\"Merlin 32\"}"
+        cat ./src/merlin/encode.S | ./a2kit verify -t mtxt -w ~+/src/merlin --config "{\"version\":\"Merlin 32\"}"
+        cat ./src/merlin/map.S | ./a2kit verify -t mtxt -w ~+/src/merlin --config "{\"version\":\"Merlin 32\"}"
+        cat ./src/merlin/parse.S | ./a2kit verify -t mtxt -w ~+/src/merlin --config "{\"version\":\"Merlin 32\"}"

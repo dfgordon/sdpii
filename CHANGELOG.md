@@ -4,6 +4,15 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.3.0] - 2025-05-04
+
+### New Features
+
+* Hard drive installer
+* Repainter brought into parity with other editors
+* Option to discard changes to a tile
+* Configuration of default tiles
+
 ## [0.2.0] - 2025-03-30
 
 ### Fixes

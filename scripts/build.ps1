@@ -14,7 +14,7 @@ if ([Version]$a2kit_vers -lt [Version]$min_a2kit_vers) {
 
 Set-Variable prodosPath ""
 Set-Variable floppy "./build/sdpii.woz"
-Set-Variable basicFiles @("startup","config","paint","tile","repaint","map")
+Set-Variable basicFiles @("startup","config","paint","tile","repaint","map","hd.install")
 
 if (!(Test-Path ./build)) {
     mkdir ./build
@@ -35,10 +35,22 @@ if ($vers -ne $dhrlib_vers) {
     Write-Error ("DHRLIB version is " + $dhrlib_vers + ", but meta version is " + $vers)
     exit 1
 }
+# Check HD.INSTALL version
+$matching = (Get-Content ./src/basic/hd.install.bas -Raw) -match 'HD INSTALLER V([0-9]+\.[0-9]+\.[0-9]+)'
+if (!$matching) {
+    Write-Error "HD.INSTALL version data missing"
+    exit 1
+}
+if ($vers -ne $Matches[1]) {
+    Write-Error ("HD.INSTALL version is " + $Matches[1] + ", but meta version is " + $vers)
+    exit 1
+}
+
 
 # Create bootable disk with WOZ metadata
 a2kit mkdsk -d $floppy -t woz2 -o prodos -v sdpii
 Get-Content ./fimg/prodos.json | a2kit put -d $floppy -f prodos -t any
+Get-Content ./fimg/ns.clock.system.json | a2kit put -d $floppy -f ns.clock.system -t any
 Get-Content ./fimg/basic.system.json | a2kit put -d $floppy -f basic.system -t any
 Get-Content ./scripts/meta.json | a2kit put -d $floppy -t meta
 
@@ -72,6 +84,7 @@ a2kit get -f ./src/merlin/dhrlib | a2kit pack -a 16384 -t bin -o prodos -f dhrli
 Move-Item ./src/merlin/dhrlib ./build/dhrlib
 
 # Copy over file images
+a2kit get -f ./fimg/disklib.json | a2kit put -d $floppy -f disklib -t any
 a2kit get -f ./fimg/font1.json | a2kit put -d $floppy -f font1 -t any
 a2kit get -f ./src/basic/config.txt | a2kit put -d $floppy -f sdpii.config -t txt
 

@@ -1,15 +1,17 @@
 1 gosub 892: lomem: 8*4096: if peek(-1088)=234 then text: home: print chr$(7);"65C02 REQUIRED": end
-2  print chr$(4);"bload dhrlib": poke 1013,76: poke 1014,0: poke 1015,64: gosub 890
-3  print chr$(4);"bload font1": print chr$(4);"pr#3": poke 232,0: poke 233,96: &aux: poke 233,0
-4  gosub 800: & vers: &pul > vers(0): &pul > vers(1): &pul > vers(2): goto 850
+2  d$ = chr$(4): print d$"bload dhrlib": poke 1013,76: poke 1014,0: poke 1015,64: gosub 890
+3  print d$"bload font1": print d$"pr#3": poke 232,0: poke 233,96: &aux: poke 233,0
+4  gosub 800: & vers: &pul > vers(0): &pul > vers(1): &pul > vers(2): gosub 50: gosub 8: goto 850
 
-5 rem move cursor
-6  ds = 1: if peek(49249)>127 then ds = 8
-7  x = x - ds*(a=8) + ds*(a=21): y = y - ds*(a=11) + ds*(a=10): &mod(x,560): &mod(y,192)
-8  return
+5  ds = 1: if peek(49249)>127 then ds = 8: rem move cursor
+6  x = x - ds*(a=8) + ds*(a=21): y = y - ds*(a=11) + ds*(a=10): &mod(x,560): &mod(y,192)
+7  return
+
+8 text: home: print chr$(17);: return: rem 40 column text home
+9 text: home: print chr$(18);: &dhr: poke -16302,0: return: rem DHR home
 
 10 rem edit prompt
-11 &tellp(addr,bit,cnt): &clear 1,24: if pr > 3 then pr = 1
+11 &mode=0: &tellp(addr,bit,cnt): &clear 1,24: if pr > 3 then pr = 1
 12 on pr goto 13,14,17
 13 w$ = "TAB=prompt, ESC=exit, SPC=select": goto 19
 14 w$ = "1=recolor,2=move": goto 19
@@ -29,9 +31,14 @@
 35  if a =  10 or a =  21 then n = m: m = m + 1: if m > p then m = 0
 36  htab 4: vtab n + l: print pn$(n): inverse: htab 4: vtab m + l: print pn$(m): normal: goto 32
 
-40  text: home: ? "SDP II Repainter "vers(0)"."vers(1)"."vers(2): vtab 13: &tellp(addr,bit,cnt): ? "length=";addr-a0;".";8-bit: l = 3: p = 3: w$ = "Select- ": b = 13
-41 pn$(0) = "Load Pic":pn$(1) = "Save Pic":pn$(2) = "Edit": pn$(3) = "Exit": gosub 30
-42  on m + 1 goto 670,600,860,870
+40  rem main menu
+41  gosub 8: ? "SDP II Repainter "vers(0)"."vers(1)"."vers(2): l = 3: p = 3: : vtab l+p+4
+42 &tellp(addr,bit,cnt): ? "length=";addr-a0;".";8-bit: w$ = "Select- ": b = 13: gosub 30
+43  on m + 1 goto 860,670,600,1200
+
+50 rem path setup
+51 print d$"prefix": input wd$: print d$"open sdpii.config": print d$"read sdpii.config": input a$: input art$: print d$"close sdpii.config": if art$="" then art$=wd$
+53 print d$"prefix "art$: return
 
 60 rem edit loop
 61  gosub 20
@@ -42,21 +49,46 @@
 73  if a = 27 then 40
 74  goto 60
 
+100 rem check selection (may pop stack)
+110 if m1 <> m2 then return
+120 pop: &clear 1,24: &print "select first" at 1,24: gosub 20: gosub 10: goto 60
+
 200 rem color
 201 rem user selects color command which is then replaced
-202 &seekg(a0,0): x = 0: &psh < 0: &psh < 0
-203 &scan: &draw 1 at 0,0: &stop: cmd = peek(249): &mod(cmd,8): if cmd = 1 then 206
-204 if cmd = 0 then 202
-205 x = x + 1: goto 203
-206 &clear 1,24: &trap at 0,13,184 to 0,13,191: &print chr$(130) + chr$(131) + ", SPC " + str$(x) at 2,24: gosub 20: if a=32 then 211
-207 if a=21 then xlow = x: &mod(xlow,256): &psh < xlow: &psh < int(x/256): goto 205
-208 if a=27 then 1180
-209 if a=8 then &pul > x: &pul > y: x = x*256 + y: &seekg(a0,x): goto 203
-210 goto 206
-211 ci = 1: gosub 900: &seekp(a0,x): &rec: &scan: &hcolor=cl(1),cl(2),cl(3),cl(4): &seekg(a0,x+1): &draw 1 at 0,0: &stop: goto 1180
+205 x0 = -1
+210 &seekg(a0,0): x = 0: &psh < 0: &psh < 0
+211 &scan: &draw 1 at 0,0: &stop: cmd = peek(249): &mod(cmd,8): if cmd = 1 then gosub 250: goto 214
+212 if cmd = 0 then 210
+213 x = x + 1: goto 211
+214 &clear 1,24: &trap at 0,13,184 to 0,13,191: &print chr$(130) + chr$(131) + ", SPC to change #" + str$(x) at 2,24: gosub 20
+215 if a=32 then 220
+216 if a=21 then xlow = x: &mod(xlow,256): &psh < xlow: &psh < int(x/256): goto 213
+217 if a=27 then 1180
+218 if a=8 then 240
+219 goto 214
+
+220 rem commit new color
+221 c1 = peek(28): c2 = peek(244): ci = 1: gosub 900: &clear 1,24: &print "(1) change here, (2) change everywhere" at 1,24: gosub 20
+222 if a = asc("1") then gosub 229: goto 1180
+223 if a <> asc("2") then gosub 20: goto 222
+225 &dhr: &seekg(a0,0): x = 0
+226 &draw 1 at 0,0: cmd = peek(249): &mod(cmd,8): if cmd = 1 and peek(28)=c1 and peek(244)=c2 then gosub 229
+227 if cmd = 0 then 1180
+228 x = x + 1: goto 226
+229 rem change color at x
+230 &seekp(a0,x): &rec: &hcolor=cl(1),cl(2),cl(3),cl(4): &draw 1 at 0,0: &stop: &seekg(a0,x+1): return
+
+240 rem goto previous part
+241 &pul > x: &pul > y: x = x*256 + y: &seekg(a0,x): if x = 0 then goto 210
+242 goto 211
+
+250 rem spotlight next part
+255 &mode=128: if x0 <> -1 then &stroke #2 at x0,y0
+256 &scan: &draw 1 at 0,0: &stop: x0 = peek(224) + peek(225)*256: y0 = peek(226)
+260 &mode=128: &stroke #2 at x0,y0: &mode=0: &seekg(a0,x+1): return
 
 300 rem move
-301 &clear 1,24: &print "Move: " + chr$(128) + chr$(132) + ", SPC" at 1,24
+301 gosub 100: &clear 1,24: &print "Move: " + chr$(128) + chr$(132) + ", SPC" at 1,24
 302 x0 = mx: y0 = my: x = x0 + 8: y = y0
 303 &mode=128: &hplot x0,y0 to x,y: gosub 20: &hplot x0,y0 to x,y: &mode=0: gosub 5
 304 if a = 27 then 1180
@@ -66,13 +98,13 @@
 308 &stop: goto 1180
 
 600 rem save
-610 home: input "save path: ";a$
-611 &tellp(addr,bit,cnt)
-620 print: print chr$(4);"bsave ";a$;",A";a0;",L";addr-a0+2
-630 goto 40
+610 home: input "save path: ";a$: &tellp(addr,bit,cnt): onerr goto 640
+630 print: print d$;"bsave ";a$;",A";a0;",L";addr-a0+2: goto 40
+640 print "disk error": call -3288: get a$: poke 216,0: goto 40
 
 650 rem append
-660 &tellp(addr,bit,cnt): home: input "load path: ";a$: print chr$(4);"bload ";a$;",A";addr+1
+651 onerr goto 640
+660 &tellp(addr,bit,cnt): home: input "load path: ";a$: print d$;"bload ";a$;",A";addr+1
 661 &seekg(addr+1,0): &rec: &scan: &draw at 0,0: &end: &stop: goto 40
 
 670 rem load
@@ -86,16 +118,15 @@
 800 rem array setup
 810 dim cl(4): dim pn$(9): dim cmd$(7): dim vers(2)
 820 restore: for i = 0 to 7: read cmd$(i): next: for i = 0 to 4: cl(i) = 15: next
+830 pn$(0) = "Edit": pn$(1) = "Load Pic":pn$(2) = "Save Pic": pn$(3) = "Exit"
 840 return
 
 850 rem new pic
 851 gosub 700: x = 280: y = 80: m1 = 0: m2 = 0: pm = 0: br = 0: &seekg(a0,0): &seekp(a0,0): poke a0,0: addr = a0: bit = 8: cnt = 0: goto 40
 
 860 rem edit
-861 &dhr: poke -16302,0: &seekg(a0,0): &draw at 0,0: gosub 880: gosub 10: pr = 1: goto 60
-
-870 rem quit
-871 vtab 21: end
+861 if cnt = 0 then home: print "nothing to edit": get a$: goto 40
+862 gosub 9: &seekg(a0,0): &draw at 0,0: gosub 880: gosub 10: pr = 1: goto 60
 
 880 rem sync parameters
 881 pm = peek(249): &and(pm,128): cl(1) = peek(28): &and(cl(1),15): cl(2) = int(peek(28)/16): cl(3) = peek(228): &and(cl(3),15): cl(4) = int(peek(228)/16)
@@ -133,9 +164,19 @@
 1132 if a = 27 then 1180
 1133 goto 1120
 
-1140 &mode=128: &move to x0,y0: &draw 1 at 0,0: cmd = peek(249): &mod(cmd,8): if cmd <> 5 then x0 = peek(224) + peek(225)*256: y0 = peek(226): rem highlight part
-1141 &seekg(a0,n): w$ = str$(m) + " " + str$(n) + " " + cmd$(cmd): &mode=cmd: &clear 28,24 to 32,24: &print w$ at 40-len(w$),24: return
+1140 rem highlight part and save its coordinate
+1141 &mode=128: &move to x0,y0: &draw 1 at 0,0: cmd = peek(249): &mod(cmd,8): &mode=cmd
+1142 if cmd <> 5 then x0 = peek(224) + peek(225)*256: y0 = peek(226)
+1143 &seekg(a0,n): w$ = str$(m) + " " + str$(n) + " " + cmd$(cmd)
+1144 &clear 28,24 to 32,24: &print w$ at 40-len(w$),24: return
 
-1180 &dhr: poke -16302,0: &seekg(a0,0): &draw at 0,0: gosub 880: gosub 10: return: rem cleanup and return
+1180 rem cleanup and return
+1181 gosub 9: &seekg(a0,0): &draw at 0,0: gosub 880: gosub 10: return
+
+1200 rem quit
+1210 home: vtab 21: print "confirm (Y/N) ": get a$: if a$ = "Y" then 1230
+1220 goto 40
+1230 print: print "restoring prefix...": print d$;"prefix";wd$
+1260 end
 
 9990 data end,clr,mod,mov,plt,lin,trp,str
