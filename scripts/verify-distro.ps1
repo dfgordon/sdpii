@@ -37,7 +37,9 @@ function Test-Size {
 # Check sizes
 
 $env:RUST_LOG = "error"
-Test-Size "maplib" 0xb00
+Set-Variable lomem 0x8b00
+Set-Variable largestMap (8 + 6 + 128*128 + 4)
+Test-Size "maplib" ($lomem-$largestMap-0x4000)
 Test-Size "dhrlib" 0x1800
 Test-Size "paint" 0x1800
 Test-Size "repaint" 0x1800

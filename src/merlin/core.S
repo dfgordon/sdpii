@@ -24,7 +24,7 @@ rowTbHi  ENT
 rowTbLo  ENT
          HEX   008000800080008028a828a828a828a850d050d050d050d0
 
-         DO    _tile/2
+         DO    _tile
 * storage for a 14x8 glyph brought in from auxiliary memory
 glyph    DS    16
          FIN
@@ -280,7 +280,8 @@ setClr   ENT
          ORA   $00,Y
          STA   $00,Y
          RTS
-:illQ    JMP   illQ
+:illQ    LDX   #ILLQTY
+         JMP   DOERR
 
 * plot one pixel with color and mode mask
 * (really plots all pixels in BITPOS)
@@ -639,7 +640,7 @@ stroke   ENT
 
          FIN
 
-         DO    _tile/2
+         DO    _tile
 
 * update MVSRC to the address of tile fac1,
 * set prod to bytes per page,
@@ -890,9 +891,6 @@ mulbb    ENT
          DEX
          BNE   :loop
          RTS
-
-illQ     LDX   #ILLQTY
-         JMP   DOERR
 
 * get remainder of prod/fac for u16
 * mod_u16  ENT

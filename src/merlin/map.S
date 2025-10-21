@@ -23,13 +23,12 @@
          PUT   equiv
          USE   macros
 
-tile     EXT
 mulbb    EXT
-abs8     EXT
 rowTbHi  EXT
 rowTbLo  EXT
+get_den  EXT
 
-         DO    _tile
+         DO    _tile/2
 begMVw   DFB   0,0        ; start of view in map coords (tiles)
 endMVw   DFB   0,0        ; end of view in map coords (tiles)
 sizMVw   DFB   0,0        ; size of view in tiles
@@ -47,21 +46,12 @@ south    DFB   4
 north    DFB   9
          FIN
 
-scroll14 MAC
-         STZ   AUXMEM
-         LDA   (zptr),Y
-         STA   (ROWPTR),Y
-         STZ   MAINMEM
-         LDA   (zptr),Y
-         STA   (ROWPTR),Y
-         <<<
-
-         DO    _tile/3
+         DO    _tile/2
 
 * draw tile A at X=x/14,Y=y/8, 0-indexed.
 * optimized version of core::tile, only works for 28x16 tiles.
 * DRAWPTR = pointer to tile data without header, must be aligned.
-* zptr,prod,ROWPTR,byt modified.
+* prod,ROWPTR modified.
 * If DRAWPTR in ZP use stashed tiles in bank 2.
 * Returns starting X in COLUMN, preserves Y.
 fstTile  STX   COLUMN
@@ -121,7 +111,7 @@ fstTile  STX   COLUMN
 * Draw map row starting at (stream) for cntMVw+0 tiles at X,Y.
 * It is OK if (stream) points to a ghost cell.
 * fac1 and fac2 are a 16-bit mask, 0 = normal cell, 1 = ghost cell.
-* Y is preserved.  X,fac1,fac2,cntMVw+0,byt modified.
+* Y is preserved.  X,fac1,fac2,cntMVw+0 modified.
 mkrow
 :loop    LSR   fac2
          ROR   fac1
@@ -136,6 +126,11 @@ mkrow
          LDA   avatar
          BRA   :tile
 :normal  LDA   (stream)
+         BMI   :denizen
+         BRA   :tile
+:denizen PHY
+         JSR   get_den
+         PLY
          BRA   :tile
 :bound   LDA   ghost
 :tile    JSR   fstTile
@@ -289,103 +284,6 @@ submap   ENT
          BPL   :fin
          add16 rowAdv;stream
          BRA   :loop
-:fin     RTS
-
-         FIN
-
-         DO    _tile
-
-* move one row of 14x8 cells via in-place copy.
-* X0,Y is the starting block coordinate.
-* DX,DX+1 are offsets to the source blocks.
-* cntMVw+0 is count of cells (not tiles).
-* ROWPTR, zptr, cntMVw+0, byt are modified.
-mvrow    LDA   rowTbLo,Y
-         CLC
-         ADC   X0
-         STA   ROWPTR
-         LDA   rowTbHi,Y
-         STA   ROWPTR+1
-         TYA
-         ADC   DX+1
-         TAY
-         LDA   rowTbLo,Y
-         STA   zptr
-         LDA   rowTbHi,Y
-         STA   zptr+1
-         addu8 X0;zptr
-         addi8 DX;zptr
-         LDX   #$08       ; y-pixels/block
-         LDA   DX
-         BMI   :nbeg
-         SEC
-         LDA   cntMVw+0
-         SBC   DX
-         STA   cntMVw+0
-:prow    LDY   #$00       ; source right, ascending order
-:ploop   scroll14
-         INY
-         CPY   cntMVw+0
-         BMI   :ploop
-         BRA   :nxtrow
-:nbeg    DEC   cntMVw+0
-         LDA   DX
-         EOR   #$FF
-         INC
-         STA   byt
-:nrow    LDY   cntMVw+0   ; source left, descending order
-:nloop   scroll14
-         DEY
-         CPY   byt
-         BPL   :nloop
-:nxtrow  DEX
-         BEQ   :fin
-         CLC
-         LDA   ROWPTR+1
-         ADC   #$04
-         STA   ROWPTR+1
-         LDA   zptr+1
-         ADC   #$04
-         STA   zptr+1
-         LDA   DX
-         BMI   :nrow
-         BRA   :prow
-:fin     RTS
-
-* Scroll in window from x1,x1+1 to x2,x2+1 by DX,DX+1 (14x8 blocks).
-* DX,DX+1 are offsets to the *source* memory.
-* There is no automatic clearing or updating of the boundary tiles.
-* DX preserved, other inputs modified, as well as byt.
-scroll   ENT
-         LDA   x1
-         STA   X0
-         LDA   DX+1
-         JSR   abs8
-         STA   byt
-
-         SEC
-         LDA   x2+1
-         SBC   x1+1
-         SBC   byt
-         INC
-         STA   cntMVw+1
-
-:rowLup  SEC
-         LDA   x2
-         SBC   x1
-         INC
-         STA   cntMVw+0
-         LDA   DX+1
-         BMI   :neg
-         LDY   x1+1
-         INC   x1+1
-         BRA   :go
-:neg     LDY   x2+1
-         DEC   x2+1
-:go      JSR   mvrow
-         DEC   cntMVw+1
-         BEQ   :fin
-         BRA   :rowLup
 :fin     RTS
 
          FIN

@@ -1,4 +1,4 @@
-1 gosub 895: lomem: 35584: if peek(-1088)=234 then text: home: print chr$(7);"65C02 PROCESSOR REQUIRED": end
+1 gosub 895: lomem: 35584: lom=35584: if peek(-1088)=234 then text: home: print chr$(7);"65C02 PROCESSOR REQUIRED": end
 2  d$ = chr$(4): def  fn gt16(addr) =  peek (addr) + 256 *  peek (addr + 1): def fn odd(x) = int(x/2) <> x/2
 3  print d$;"bload maplib": poke 1013,76: poke 1014,0: poke 1015,64: gosub 890
 4  print d$;"bload font1": print d$;"pr#3": poke 232,0: poke 233,96: &aux: poke 233,0
@@ -37,13 +37,13 @@
 50 rem edit prompt
 51 &clear 1,23 to 40,24
 52 &print chr$(128) + chr$(129) + "SPC=place, `/TAB=select, +/-=level" at 1,23
-53 &print chr$(128) + chr$(129) + chr$(132) + "=move, B=bound, ESC=menu" at 1,24
+53 &print chr$(128) + chr$(129) + chr$(132) + "=move, B=bound, " + chr$(128) + "D=denizen, ESC=menu" at 1,24
 54 rem coords
 55 w$ = str$(x) + "," + str$(y) + "," + str$(z): i = 41-len(w$): &tile #pd at 39,21: &clear 32,1: &print w$ at i,1: i = fre(0): return
 
 60 rem main menu
 61  gosub 8: m = fre(0): print "SDP II Mapper "vers(0)"."vers(1)"."vers(2): l = 3: p = 7: vtab l+p+4
-62 print "size=";lx;",";ly: print "tiles=";tcount: print "levels=";lz
+62 print "size=";lx;",";ly: print "tiles=";tcount: print "levels=";lz: print "denizens=";peek(d0)
 63 w$ = "Select- ": b = 13: gosub 30
 64  on m + 1 goto 450,400,500,1000,1050,900,1150,1200
 
@@ -57,10 +57,11 @@
 77  if a = asc("B") then gosub 200: goto 70
 78  if a = asc("+") then gosub 870: gosub 96: goto 70
 79  if a = asc("-") then gosub 880: gosub 96: goto 70
-80  goto 70
+80  if a = asc("D") then gosub 150: goto 70
+81  goto 70
 
 90 rem scroll map
-91  ds = 1 + (peek(49249)>127)*3: p = a9 + 6 + x + y*lx: if peek (49250)>127 then poke p,pd
+91  ds = 1 + (peek(49249)>127)*3: p = l0 + 6 + x + y*lx: if peek (49250)>127 then poke p,pd
 92  x = x + dx*ds: y = y + dy*ds: &mod(x,lx): &mod(y,ly)
 96  poke 0,a1lo: poke 1,a2hi
 99  &map at x-xhalf,y-yhalf to x+xhalf,y+yhalf at x00,y00: gosub 54: return
@@ -68,9 +69,9 @@
 100 rem place tile(s)
 101 if peek(49249)>127 then 104
 102 if peek(49250)>127 then 105
-103 poke a9 + 6 + x + y*lx,pd: return
-104 gosub 18: gosub 110: for i = x-2 to x+2: for j = y-1 to y+1: poke a9 + 6 + i + j*lx,pd: next: next: gosub 50: goto 96
-105 gosub 18: gosub 112: for i = x-4 to x+4: for j = y-3 to y+3: poke a9 + 6 + i + j*lx,pd: next: next: gosub 50: goto 96
+103 poke l0 + 6 + x + y*lx,pd: return
+104 gosub 18: gosub 110: for i = x-2 to x+2: for j = y-1 to y+1: poke l0 + 6 + i + j*lx,pd: next: next: gosub 50: goto 96
+105 gosub 18: gosub 112: for i = x-4 to x+4: for j = y-3 to y+3: poke l0 + 6 + i + j*lx,pd: next: next: gosub 50: goto 96
 110 if x < 2 or x > lx-3 or y < 1 or y > ly-2 then 120
 111 return
 112 if x < 4 or x > lx-5 or y < 3 or y > ly-4 then 120
@@ -80,12 +81,19 @@
 130 rem close to menu
 140 return
 
+150 rem place or remove denizen
+151 i = l0 + 6 + x + y*lx: j = peek(i): &and(j,127)
+152 if peek(49249)>=128 then 160
+153 if peek(d0)>62 or d0 + 4 + 4*peek(d0) + 4 > lom then &print "no room" at 1,23: get a$: gosub 50: return
+159 poke i,j+128: &den(1,pd,0,i-a0+8*(a0=m0)): return
+160 poke i,j: &den(255,0,0,i-a0+8*(a0=m0)): return
+
 200 rem set boundary tiles
 210 &clear 1,23: &clear 1,24: &print "type N, S, E, or W" at 1,23: gosub 20
-220 if a = asc("N") then poke a9 + 2, pd
-221 if a = asc("S") then poke a9 + 3, pd
-222 if a = asc("E") then poke a9 + 4, pd
-223 if a = asc("W") then poke a9 + 5, pd
+220 if a = asc("N") then poke l0 + 2, pd
+221 if a = asc("S") then poke l0 + 3, pd
+222 if a = asc("E") then poke l0 + 4, pd
+223 if a = asc("W") then poke l0 + 5, pd
 230 gosub 50: goto 96
 
 300 a$ = tile$: goto 320: rem enter tile path
@@ -98,7 +106,8 @@
 412  input "map levels: ";lz: if lz<1 or lx*ly*lz > 16384 then home: goto 412
 421  print "starting tile:": temp$ = str$(inner): gosub 950: if a<0 or a>47 then home: goto 421
 422  x = a0 + 6: y = a0 + (6+lx*ly)*lz - 1
-423  if y >= 35584 then print chr$(7);"not enough workspace": get a$: goto 410
+423  if y + 4 >= lom then print chr$(7);"not enough workspace": get a$: goto 410
+424  m0 = a0: aux = 0: d0 = y+1: gosub 850: &den(0,a0-8,0,d0): gosub 860
 430  print "fill first page...": for addr = x to x + 255: poke addr,a: next: a = 2: addr = addr - 256
 431  htab 1: vtab 7: print "copy to page ";a
 432  poke 60,addr - 256*int(addr/256): poke 61,int(addr/256): addr = addr + 255
@@ -110,10 +119,10 @@
 442 for i = 1 to lz: gosub 445: gosub 870: next: gosub 860: goto 60
 
 445 rem setup level header
-446 poke a9,lx: poke a9+1,ly: poke a9+2,bound: poke a9+3,bound: poke a9+4,bound: poke a9+5,bound: return 
+446 poke l0,lx: poke l0+1,ly: poke l0+2,bound: poke l0+3,bound: poke l0+4,bound: poke l0+5,bound: return 
 
 450 rem load tiles
-451  home: if a0 + (6 + lx*ly)*lz >= 24576 then print "save and restart program first": get a$: goto 60
+451  home: if d0 + 4 + 4*peek(d0) >= 24576 then print "save and restart program first": get a$: goto 60
 460  gosub 300: onerr goto 1049
 462  print d$;"bload ";a$;",a$6000": if peek(24576) <> 2 or peek(24577) <> 2 then print "incompatible tiles": get a$: poke 216,0: goto 60
 470  poke 233,96: &bank: poke 233,0: tcount = (fn gt16 (48840) - 2) / 64
@@ -124,9 +133,15 @@
 
 500 rem load map
 501  gosub 600: gosub 310: onerr goto 1049
-503  print d$;"bload ";a$;",a";a0: lx = peek(a0): ly = peek(a0+1)
-504  lz = fn gt16 (48840) / (6 + lx*ly)
-508  map = 1: poke 216,0: gosub 860: goto 60
+503  print d$;"bload ";a$;",a";a0: if peek(a0)=0 then 510
+504  m0 = a0: lx = peek(m0): ly = peek(m0+1)
+505  lz = fn gt16 (48840) / (6 + lx*ly): aux = 0: d0 = a0 + fn gt16 (48840): gosub 850
+508  &den(0,a0-8*(a0=m0),0,d0): map = 1: poke 216,0: gosub 860: goto 60
+
+510 rem extended map format
+511 if peek(a0+1)<>1 then print "map version is ";peek(a0+1);", expected 1": get a$: goto 60
+512 lz = peek(a0+2): aux = peek(a0+3)*4: m0 = a0 + 8: lx = peek(m0): ly = peek(m0+1)
+513 d0 = m0 + (6+lx*ly)*lz + aux: goto 508
 
 600 rem check tiles, may pop stack
 601 if tiles <> 1 then home: print "load tiles first": get a$: pop: goto 60
@@ -140,20 +155,24 @@
 810  dim pn$(9), vers(2): pn$(0) = "Load Tiles": pn$(1) = "New Map": pn$(2) = "Load Map": pn$(3) = "Save Map"
 820  pn$(4) = "Edit": pn$(5) = "Settings": pn$(6) = "Catalog": pn$(7) = "Exit": return
 
+850 rem init denizen records
+851 poke d0,0: poke d0+1,0: poke d0+2,0: poke d0+3,0: return
+
 860 rem reset level to 0
-861 z = 0: a9 = a0: goto 892
+861 z = 0: l0 = m0
+862 a1lo = l0: &mod(a1lo,256): a2hi = int(l0/256): return: rem set level pointer
 
 870 rem increase level
 871 if z + 1 = lz then return
-872 z = z + 1: a9 = a9 + 6 + lx*ly: goto 892
+872 z = z + 1: l0 = l0 + 6 + lx*ly: goto 862
 
 880 rem decrease level
 881 if z = 0 then return
-882 z = z - 1: a9 = a9 - 6 - lx*ly: goto 892
+882 z = z - 1: l0 = l0 - 6 - lx*ly: goto 862
 
-890 rem map workspace
-891 a0 = fn gt16 (48825) + fn gt16 (48840): a9 = a0
-892 a1lo = a9: &mod(a1lo,256): a2hi = int(a9/256): return
+890 rem setup workspace
+891 a0 = 8 + fn gt16 (48825) + fn gt16 (48840): rem leave 8 bytes for conversion to extended format
+892 m0 = a0: d0 = a0: gosub 850: lz = 0: aux = 0: return: rem init size check inputs so we can always load tiles at start
 
 895 rem check himem
 896 hm = peek (115) + 256 * peek (116): if hm < 9*4096 then print "HIMEM TOO LOW": end
@@ -171,7 +190,17 @@
 
 1000 rem save map
 1010 gosub 700: gosub 310: onerr goto 1049
-1020 print d$;"bsave ";a$;",a";a0;",l";(6+lx*ly)*lz: poke 216,0: goto 60
+1011 if m0 <> a0 then 1030
+1012 if peek(d0) > 0 then 1040
+1020 rem simple format
+1021 print d$;"bsave ";a$;",a";m0;",l";(6+lx*ly)*lz: poke 216,0: goto 60
+1030 rem extended format
+1031 poke a0+4,peek(d0)
+1032 print d$;"bsave ";a$;",a";a0;",l";d0-a0+4+4*peek(d0): poke 216,0: goto 60
+1040 rem old format being extended
+1041 poke a0-8,0: poke a0-7,1: poke a0-6,lz: poke a0-5,0: poke a0-4,peek(d0): poke a0-3,0: poke a0-2,0: poke a0-1,0
+1042 print d$;"bsave ";a$;",a";a0-8;",l";d0-a0+8+4+4*peek(d0): poke 216,0: goto 60
+
 1049 print "disk error": call -3288: get a$: poke 216,0: goto 60
 
 1050  rem edit map
@@ -196,3 +225,19 @@
 
 1300 rem setup move memory call
 1310 poke 768,160: poke 769,0: poke 770,32: poke 771,44: poke 772,254: poke 773,96: return
+
+9000 rem variable descriptions
+9010 rem address types:
+9020 rem   a0 = start of map data
+9030 rem   m0 = start of first map level
+9040 rem   l0 = start of current map level
+9050 rem   d0 = start of denizen data
+9060 rem To allow the program to auto-select simple or extended maps, the following device is used.
+9061 rem   The start of the map data is always 8 bytes advanced from the start of free space.
+9062 rem   If a0=m0, we have a simple map.  If denizens are added, they are referenced to the
+9063 rem   address a0-8, and when the map is saved the header is simply inserted
+9064 rem   and an extended map is saved.  If a0<>m0, we have an extended map, and denizens
+9065 rem   are referenced to a0.  In this case the 8 byte gap is simply not used.
+9070 rem aux = size of auxiliary data in bytes
+
+9999 end: rem minifier L3 will choke without this (why?)

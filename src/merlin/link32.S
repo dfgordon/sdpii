@@ -7,6 +7,8 @@
          ASM   core.S
          ASM   draw.S
          ASM   map.S
+         ASM   denizen.S
          ASM   encode.S
          ASM   decode.S
          ASM   bitstream.S
+         ASM   scroll.S

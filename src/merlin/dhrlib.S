@@ -33,16 +33,10 @@
 
 dhrInit  EXT
          DO    _pics
-setHCurs EXT
-setVCurs EXT
 setClr   EXT
-plot     EXT
-plotc    EXT
-lineTo   EXT
 stroke   EXT
-trap     EXT
          FIN
-         DO    _tile/2
+         DO    _tile
 tile     EXT
 print    EXT
 clear    EXT
@@ -65,13 +59,17 @@ saveInt  EXT
 psh      EXT
 pul      EXT
 
-* imports from MAP
+* imports from MAP or DENIZEN
 
-         DO    _tile/3
+         DO    _tile/2
 submap   EXT
 avatar   EXT
+ins_den  EXT
+del_den  EXT
+denizens EXT
+xmap     EXT
          FIN
-         DO    _tile
+         DO    _scroll
 scroll   EXT
          FIN
 
@@ -86,12 +84,10 @@ countdwn EXT
 
 * imports from DECODE
 
-decoder  EXT
 seekg    EXT
 tellg    EXT
 resmg    EXT
 chkpg    EXT
-doDecode EXT
 
          FIN
 
@@ -99,12 +95,10 @@ doDecode EXT
 
 * imports from ENCODE
 
-encoder  EXT
 seekp    EXT
 tellp    EXT
 resmp    EXT
 chkpp    EXT
-doEncode EXT
 
          FIN
 
@@ -411,7 +405,7 @@ ampDraw  LDA   #at_t
 
          FIN
 
-         DO    _tile/2
+         DO    _tile
 
 * &aux. copy 6 pages starting at (DRAWPTR),2 to aux/0x800.
 * copy 1 page starting at (DRAWPTR),$602 to main/2/0xD000.
@@ -449,7 +443,7 @@ ampTile  JSR   chkPnd
 
          FIN
 
-         DO    _tile/3
+         DO    _tile/2
 
 * &av #n
 ampAvtr  JSR   chkPnd
@@ -499,12 +493,43 @@ ampMap   JSR   chkAt
          JSR   txtPt
          STX   X0
          STY   X0+1
-:go      JSR   submap
+         JSR   submap
+         JMP   ampDone
+
+* &den (op,tile,aux,offset) or &den (op,xmap,0,denizens)
+ampDen   JSR   CHKOPN
+         JSR   GETBYT
+         STX   stat
+         JSR   CHKCOM
+         JSR   GETNUM
+         LDA   X00
+         STA   fac1
+         STA   zptr
+         LDA   X00+1
+         STA   zptr+1
+         STX   fac2
+         JSR   CHKCOM
+         JSR   NUMEVL
+         JSR   GETADR
+         JSR   CHKCLS
+
+         LDA   stat
+         BEQ   :init
+         BMI   :del
+
+         JSR   ins_den
+         JMP   ampDone
+
+:del     JSR   del_den
+         JMP   ampDone
+
+:init    cp16  X00;denizens
+         cp16  zptr;xmap
          JMP   ampDone
 
          FIN
 
-         DO    _tile
+         DO    _scroll
 
 * &scroll at x1,y1 to x2,y2 step dx,dy (units of 14x8 blocks, one-indexing)
 ampScrol JSR   chkAt
@@ -524,7 +549,7 @@ ampScrol JSR   chkAt
 
          FIN
 
-         DO    _tile/2
+         DO    _tile
 
 * &print sexpr at X,Y (units of 14x8 tiles, one-indexing)
 ampPrint JSR   FRMEVL
@@ -630,6 +655,7 @@ xzoom    DFB   0,0
 yzoom    DFB   0
 cellBits DFB   0
 * &zoom(bits,x,y)
+* This is used to draw the zoom view in the tiler
 ampZoom  JSR   CHKOPN
          JSR   GETBYT
          STX   cellBits
@@ -675,7 +701,7 @@ cmosErr  JSR   BELL
 * Table of ampersands.
 * If one is a left-substring of another, longer string must go first.
 * Whenever one is added put it here alphabetically and check:
-* AV,AUX,BANK,BIT,DHR,MAP,MOD,MODE,MOVE,PSH,PUL,REC,SCAN,SEEKG,SEEKP,SCROLL,STROKE,TELLG,TELLP,TRAP,TILE,VERS,ZOOM
+* AV,AUX,BANK,BIT,DEN,DHR,MAP,MOD,MODE,MOVE,PSH,PUL,REC,SCAN,SEEKG,SEEKP,SCROLL,STROKE,TELLG,TELLP,TRAP,TILE,VERS,ZOOM
 ampTbl   ASC   'VERS',00
          DA    ampVers
          ASC   'DHR',00
@@ -722,12 +748,12 @@ ampTbl   ASC   'VERS',00
          DA    ampZoom
          FIN
 
-         DO    _tile
+         DO    _scroll
          ASC   'SCROLL',00
          DA    ampScrol         
          FIN
 
-         DO    _tile/2
+         DO    _tile
          ASC   'TILE',00
          DA    ampTile
          ASC   'AUX',00
@@ -738,13 +764,15 @@ ampTbl   ASC   'VERS',00
          DA    ampClear
          FIN
 
-         DO    _tile/3
+         DO    _tile/2
          ASC   'AV',00
          DA    ampAvtr
          ASC   'BANK',00
          DA    ampBank
          ASC   'MAP',00
          DA    ampMap
+         ASC   'DEN',00
+         DA    ampDen
          FIN
 
          ASC   'MOD',00
@@ -764,7 +792,7 @@ ampTbl   ASC   'VERS',00
 
 absPtr   HEX   00,00
 
-version  DFB   0,3,0
+version  DFB   0,4,0
 
 noCMOS   ASC   "DHRLIB REQUIRES 65C02",00
 

@@ -7,7 +7,7 @@
 Set-Variable ErrorActionPreference "Stop"
 Set-Variable PSNativeCommandUseErrorActionPreference $true
 
-$min_a2kit_vers = "3.7.0"
+$min_a2kit_vers = "4.0.0"
 $a2kit_vers = (a2kit -V).Split()[1]
 if ([Version]$a2kit_vers -lt [Version]$min_a2kit_vers) {
     Write-Error ("requires a2kit v" + $min_a2kit_vers)

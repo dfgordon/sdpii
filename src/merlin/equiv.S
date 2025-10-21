@@ -3,14 +3,14 @@
 * `_pics = 1` -> primitives=1,decode=0,encode=0
 * `_pics = 2` -> primitives=1,decode=1,encode=0
 * `_pics = 3` -> primitives=1,decode=1,encode=1
-* `_tile = 0` -> scroll=0,text=0,maps=0
-* `_tile = 1` -> scroll=1,text=0,maps=0
-* `_tile = 2` -> scroll=1,text=1,maps=0
-* `_tile = 3` -> scroll=1,text=1,maps=1
+* `_tile = 0` -> text=0,maps=0
+* `_tile = 1` -> text=1,maps=0
+* `_tile = 2` -> text=1,maps=1
 
 _safe    =     0          ; protect memory
-_wrap    =     1          ; wrap cursor
-_bound   =     1          ; bounds check &s
+_wrap    =     0          ; wrap cursor
+_bound   =     0          ; bounds check &s
+_scroll  =     1          ; scroll &
 _pics    =     3          ; see above
 _tile    =     3          ; see above
 maxBrsh  =     7
