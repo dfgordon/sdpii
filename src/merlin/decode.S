@@ -162,9 +162,6 @@ dcStroke JSR   getX0
          STA   y1
          JMP   closDc
 
-illQ     LDX   #ILLQTY
-         JMP   DOERR
-
 * following 5 bytes are bitstream struct:
 * bytePtr(2),lookahead,lookbehind,bitPtr
 decoder  ENT

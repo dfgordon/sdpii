@@ -150,7 +150,8 @@ setHCurs ENT
 * Move cursor horizontally with wrap-around. X0 unchanged.
 * Direction given by N.  For vertical use ROM.
 movHor   BPL   incHor
-decHor   LDA   BITPOS
+*decHor
+         LDA   BITPOS
          LSR
          CMP   #%01000000
          BEQ   :new80c
@@ -239,7 +240,7 @@ dhrInit  ENT
          STA   MAINZP
          STA   RDMAIN
          STA   WRMAIN
-         STA   STOR80
+         STA   ST80ON
          STA   HIRES
          STA   DHR
          STA   GRAPHICS
@@ -358,16 +359,6 @@ iniLine  PHA              ; x1 low
          LDY   COLUMN
          RTS
 
-* draw line from X0,Y0 to A+X*256,Y
-* Cursor,X0,Y0 are updated.
-line     PHA
-         PHX
-         PHY
-         JSR   setHCurs
-         JSR   setVCurs
-         PLY
-         PLX
-         PLA
 * Draw line from cursor to A+X*256,Y.
 * Cursor,X0,Y0 must be consistent.
 * Cursor,X0,Y0 are updated.
@@ -566,7 +557,8 @@ fastLn   LDA   HCOUNT
          LDA   HCOUNT
          SBC   #$07
          STA   HCOUNT
-:adv     rolClr
+*adv
+         rolClr
          swBank
          LDA   CHKAUX
          BPL   :nxt
@@ -645,10 +637,10 @@ stroke   ENT
 * update MVSRC to the address of tile fac1,
 * set prod to bytes per page,
 * set prod+1 to normal or inverse mask.
-* X00 = column pairs, fac2 = rows, MVSRC = address of first tile.
+* byt = column pairs, fac2 = rows, MVSRC = address of first tile.
 tileptr  JSR   mulbb
          cp16  prod;glyph ; use glyph as temp
-         LDX   X00
+         LDX   byt
 :add     DEX
          BEQ   :dbl
          add16 glyph;prod
@@ -661,7 +653,7 @@ tileptr  JSR   mulbb
          BPL   :size
          DEC   prod+1     ; prod+1 = mask
 :size    LDA   fac2
-         LDX   X00
+         LDX   byt
          CLC
 :add2    DEX
          BEQ   :fin
@@ -675,13 +667,13 @@ tileptr  JSR   mulbb
 * Glyph number to load is in fac1.
 * Glyphs 0-95 are pulled from pages 8-13 of aux-memory.
 * Glyphs 96-111 are pulled from page $D0 of main-memory (bank 2).
-* `glyph` receives glyph data, `fac2` set to 8, `X00` set to 1.
+* `glyph` receives glyph data, `fac2` set to 8, `byt` set to 1.
 ldglyph  STZ   MVSRC
          LDA   #$08
          STA   MVSRC+1
          STA   fac2
          LDA   #$01
-         STA   X00
+         STA   byt
          LDA   fac1
          CMP   #$60
          BMI   :prep      ; using aux
@@ -734,7 +726,7 @@ tile     ENT
          BRA   :offset
 :ldbank  mkptr $D400;MVSRC
          LDA   #2
-         STA   X00
+         STA   byt
          LDA   #16
          STA   fac2
          BRA   :off2
@@ -743,7 +735,7 @@ tile     ENT
          BRA   :iniLup
 :offset  LDA   (MVSRC)
          inc16 MVSRC
-         STA   X00
+         STA   byt
          LDA   (MVSRC)
          inc16 MVSRC
          ASL
@@ -773,7 +765,7 @@ tile     ENT
          LDA   rowTbHi,Y
 :ezRow   LDY   COLUMN
          STA   ROWPTR+1
-         LDA   X00
+         LDA   byt
          STA   fac1
 * loop over columns
 :rep     LDA   $FFFF,X    ; variable operand
@@ -785,7 +777,7 @@ tile     ENT
          DEC   fac1
          BNE   :rep
 * prepare for next row
-:nxtRow  CLC
+         CLC
          LDA   ROWPTR+1
          ADC   #$04
          BIT   #$1C
@@ -798,42 +790,93 @@ tile     ENT
          PLY
          RTS
 
-* print str with length A and ptr INDEX at X,Y. zero-indexing.
-* font must be 14 pixels wide.  destroys stat and byt.
-print    ENT
+* handle output redirection to the DHGR screen.
+* character to output should be in A.
+gout     ENT
+         CLD              ; required per Apple
          STA   stat
+         PHX
+         PHY
+         PHA
          LDA   DRAWPTR+1
+         PHA
          BNE   :go
          LDA   #$08
          STA   DRAWPTR+1
-         JSR   :go
-         STZ   DRAWPTR+1
-         RTS
-:go      LDA   #$00
-         STA   byt
-:loop    PHY
-         LDY   byt
-         LDA   (INDEX),Y
+:go      LDA   stat
+         EOR   #$80
+         CMP   #$0D
+         BEQ   :nxtRow
+         LDX   CH
+         LDY   CV
          SEC
          SBC   #$20
-         PLY
-         PHY
-         PHX
-         JSR   tile
-         PLX
-         PLY
+         BPL   :render
+         ADC   #$7B       ; 5 -> 96, 6 -> 97, ...
+:render  JSR   tile
+         LDX   CH
          INX
-         CPX   #$28
-         BCS   :wrap
-:nxt     INC   byt
-         DEC   stat
-         BNE   :loop
-         RTS
-:wrap    LDX   #$00
+         TXA
+         SEC
+         SBC   WLEFT
+         CMP   WWIDTH
+         BCS   :nxtRow
+         STX   CH
+         BRA   :cleanup
+:nxtRow  LDA   WLEFT
+         STA   CH
+         LDY   CV
          INY
-         CPY   #$18
-         BCC   :nxt
+         CPY   WBOT
+         BCS   :cleanup
+         STY   CV
+* this was called by ProDOS, and we might be in the midst of
+* processing BASIC output routines
+:cleanup STZ   MAINMEM
+         PLA
+         STA   DRAWPTR+1
+         PLA
+         PLY
+         PLX
          RTS
+         
+
+* print str with length A and ptr INDEX at X,Y. zero-indexing.
+* font must be 14 pixels wide.  destroys stat and X00.
+* print    ENT
+*          STA   stat
+*          LDA   DRAWPTR+1
+*          BNE   :go
+*          LDA   #$08
+*          STA   DRAWPTR+1
+*          JSR   :go
+*          STZ   DRAWPTR+1
+*          RTS
+* :go      LDA   #$00
+*          STA   X00
+* :loop    PHY
+*          LDY   X00
+*          LDA   (INDEX),Y
+*          SEC
+*          SBC   #$20
+*          PLY
+*          PHY
+*          PHX
+*          JSR   tile
+*          PLX
+*          PLY
+*          INX
+*          CPX   #$28
+*          BCS   :wrap
+* :nxt     INC   X00
+*          DEC   stat
+*          BNE   :loop
+*          RTS
+* :wrap    LDX   #$00
+*          INY
+*          CPY   #$18
+*          BCC   :nxt
+*          RTS
 
 * clear A columns at X=x/14,Y=y/8
 clear    ENT

@@ -8,17 +8,11 @@
 * The map renderer then has to lookup this denizen and render its tile in place
 * of the terrain underneath.  Denizens are sorted by their offset into the map.
 * 
-* Denizen count is assumed to be at most 63.
-* At this level denizens are static, if movement is needed higher level code must provide.
+* Denizen count is assumed to be at most 64.
+* Animation of denizens is not handled at this level.
 *
-* DENIZEN HEADER AND RECORDS
-* offset | data | length
-* -------|------|-------
-* 0 | denizen count | 1
-* 1 | reserved | 3
-* 4 | record 1 | 4
-* ... | ... | ...
-* 4*n | record n | 4
+* The denizen buffer contains nothing but packed denizen records.
+* The count is maintained in the map header.
 * 
 * ONE DENIZEN RECORD
 * offset | data | length
@@ -38,38 +32,52 @@ denizens ENT              ; variable pointer to denizen records
 xmap     ENT              ; variable pointer to extended map
          DA    $0000
 
-* Setup for denizen operations. Returns:
-* zptr points to denizens,
-* prod=zptr+A, where A is signed
+* Setup for denizen operations using a signed offset A. Returns:
+* zptr=pointer to records,
+* prod=zptr+A,
 * A=stat=denizen count,
 * status bits reflect denizen count
 setup    STA   stat
+         cp16  xmap;zptr
+         LDY   #4
+         LDA   (zptr),Y
+         PHA
          cp16 denizens;zptr
          cp16 zptr;prod
          addi8 stat;prod
-         LDA   (zptr)
+         PLA
          STA   stat
          RTS
 
+* Store stat in the map header's denizen count field.
+* This changes prod but perserves Y.
+update   PHY
+         cp16  xmap;prod
+         LDY   #4
+         LDA   stat
+         STA   (prod),Y
+         PLY
+         RTS
+         
 * Delete a denizen at map offset X00.
-* Changes zptr, prod, stat.
+* Changes zptr, prod, stat, byt, X00.
 del_den  ENT
          JSR   search
          BMI   :fin
          LDA   stat
+         DEC
          ASL
          ASL
          STA   X00        ; re-use as offset to last record
-         addu8 #2;prod
+         addu8 #2;prod    ; another 2 makes 4
 :loop    CPY   X00
          BEQ   :dec
          LDA   (prod),Y
          STA   (zptr),Y
          INY
          BRA   :loop
-:dec     LDA   stat
-         DEC
-         STA   (zptr)
+:dec     DEC   stat
+         JSR   update
 :fin     RTS
 
 * Insert or replace denizen record.
@@ -80,7 +88,6 @@ ins_den  ENT
          JSR   setup
          BEQ   :first
          TAX              ; denizen count before insertion
-         INC              ; skip header
          ASL
          ASL
          STA   byt        ; offset to new last record
@@ -106,10 +113,9 @@ ins_den  ENT
          INY
          INY
          BRA   :write
-:first   LDY   #$07
-:inc     LDA   stat
-         INC
-         STA   (zptr)
+:first   LDY   #$03
+:inc     INC   stat
+         JSR   update
 :write   LDA   fac2
          STA   (zptr),Y
          DEY
@@ -122,7 +128,7 @@ ins_den  ENT
          LDA   X00
          STA   (zptr),Y
          RTS
-:insert0 LDY   #$01
+:insert0 LDY   #$FD
 :insert  TYA
          CLC
          ADC   #6
@@ -141,7 +147,7 @@ ins_den  ENT
 
 * Put `stream - xmap` into `X00` and fall into `search`. Changes zptr, prod, stat, byt, X00.
 * Returns offset to record in Y, and tile index in A, or if search fails A=$ff.
-* Records must be sorted by offset, maximum record count is 63.
+* Records must be sorted by offset, maximum record count is 64.
 get_den  ENT
          SEC
          LDA   stream
@@ -152,13 +158,13 @@ get_den  ENT
          STA   X00+1
 * Search denizen records for offset `X00`. Changes zptr, prod, stat, byt.
 * Returns offset to record in Y, and tile index in A, or if search fails A=$ff.
-* Records must be sorted by offset, maximum record count is 63.
+* Records must be sorted by offset, maximum record count is 64.
 search   LDA   #2
          JSR   setup
+         BEQ   :fail
          LSR
          STA   byt        ; current displ in units of records
-:go      PHA              ; current record using 0-indexing
-         INC
+:go      PHA              ; current record
          ASL
          ASL
          TAY              ; offset to start of record
@@ -176,11 +182,11 @@ search   LDA   #2
          RTS
 
 :cont    LDA   byt
-         BMI   :dec
-         BEQ   :inc
+         BMI   :dec       ; no more bisecting target is downward
+         BEQ   :inc       ; no more bisecting target is upward
          BCS   :pos
 
-         LDA   byt
+         LDA   byt        ; still bisecting target is downward
          LSR
          BEQ   :beg_dec
          STA   byt
@@ -189,7 +195,7 @@ search   LDA   #2
          SBC   byt
          BRA   :go
 
-:pos     LDA   byt
+:pos     LDA   byt       ; still bisecting target is upward
          LSR
          BEQ   :beg_inc
          STA   byt

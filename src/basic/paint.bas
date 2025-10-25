@@ -1,24 +1,23 @@
 1 gosub 892: lomem: 8*4096: if peek(-1088)=234 then text: home: print chr$(7);"65C02 REQUIRED": end
 2  d$ = chr$(4): print d$;"bload dhrlib": poke 1013,76: poke 1014,0: poke 1015,64: gosub 890
-3  print d$;"bload font1": print d$;"pr#3": poke 232,0: poke 233,96: &aux: poke 233,0
+3  print d$;"bload font1": poke 232,0: poke 233,96: &aux: poke 233,0
 4  gosub 800: & vers: &pul > vers(0): &pul > vers(1): &pul > vers(2): gosub 50: gosub 8: goto 850
 
 5  ds = 1: if peek(49249)>127 then ds = 10: rem move cursor
 6  x = x - ds*(a=8) + ds*(a=21): y = y - ds*(a=11) + ds*(a=10): &mod(x,560): &mod(y,192): if pr=5 then gosub 17
 7  return
 
-8 text: home: print chr$(17);: return: rem 40 column text home
-9 text: home: print chr$(18);: &dhr: poke -16302,0: return: rem DHR home
+8 text: home: print d$;"pr#3": print chr$(17): return: rem 40 column text home
+9 home: print chr$(18): &dhr: poke -16302,0: &pr#: return: rem DHR home
 
 10 rem edit prompt
 11 &tellp(addr,bit,cnt): &clear 1,24: if pr > 5 then pr = 1
-12 on pr goto 13,14,15,16,17
-13 w$ = "TAB=prompt, ESC=exit, SPC=stroke": goto 19
-14 w$ = chr$(128)+chr$(132) + "=move,1=line,2=trap,3=tri,x=xor": goto 19
-15 w$ = chr$(128)+"b=brush,c=color,d=dither,^x=cut,^z=pop": goto 19
-16 w$ = "brush=" + str$(br) + ",len=" + str$(addr-a0) + "." + str$(8-bit) + ",cmd=" + str$(cnt): goto 19
-17 &trap at 0,13,184 to 0,13,191: w$ = str$(x) + "," + str$(y) + "   ": &print w$ at 3,24: return 
-19 &print w$ at 1,24: return
+12 htab 1: vtab 24: on pr goto 13,14,15,16,17
+13 print "TAB=prompt, ESC=exit, SPC=stroke": return
+14 print chr$(5)chr$(9)"=move,1=line,2=trap,3=tri,x=xor": return
+15 print chr$(5)"b=brush,c=color,d=dither,^x=cut,^z=pop": return
+16 print "brush="str$(br)",len="str$(addr-a0)"."str$(8-bit)",cmd="str$(cnt): return
+17 &trap at 0,13,184 to 0,13,191: htab 3: print str$(x)","str$(y)"   ";: return 
 
 20 rem get upper
 21 a = peek(49152): if a < 128 then 21
@@ -86,7 +85,7 @@
 212 ci = 1: gosub 900: &rec: &hcolor=cl(1),cl(2),cl(3),cl(4): goto 114
 
 300 rem line mode
-301 &clear 1,24: pr=5: gosub 17: &print "Line: " + chr$(128) + chr$(132) + ", SPC" at 13,24
+301 &clear 1,24: pr=5: vtab 24: gosub 17: htab 13: print "Line: "chr$(5)chr$(9)", SPC"
 302 &rec: &move to x,y: goto 307
 303 &mode=128: &hplot x0,y0 to x,y: gosub 20: &hplot x0,y0 to x,y: &mode=pm: gosub 5
 304 if a = 27 then gosub 10: return
@@ -97,7 +96,7 @@
 400 rem trapezoid mode
 401 x(0) = x: y(0) = y: x(1) = x+10: y(1) = y: n = 0
 402 x(2) = x: y(2) = y+5: x(3) = x+10: y(3) = y+5:
-403 &clear 1,24: pr=5: gosub 17: &print "Trap: " + chr$(128) + chr$(129) + chr$(132) + ", TAB, SPC" at 13,24
+403 &clear 1,24: pr=5: vtab 24: gosub 17: htab 13: print "Trap: "chr$(5)chr$(6)chr$(9)", TAB, SPC"
 404 &mode=128:gosub 430: gosub 20: gosub 430: &mode=pm: gosub 80: gosub 420
 405 if a = 32 then gosub 410: goto 404
 406 if a = 27 then gosub 10: x = x(n): y = y(n): return
@@ -119,7 +118,7 @@
 
 450 rem triangle mode
 451 x(0) = x: y(0) = y: x(1) = x+10: y(1) = y+5: x(2) = x: y(2) = y+10: n = 0
-452 &clear 1,24: pr=5: gosub 17: &print "Tri: " + chr$(128) + chr$(129) + chr$(132) + ", TAB, SPC" at 13,24
+452 &clear 1,24: pr=5: vtab 24: gosub 17: htab 13: print "Tri: "chr$(5)chr$(6)chr$(9)", TAB, SPC"
 453 &mode=128: gosub 480: gosub 20: gosub 480: &mode=pm: gosub 80
 454 if a = 32 then gosub 460: a = 9
 455 if a = 27 then gosub 10: x = x(n): y = y(n): return
@@ -193,8 +192,7 @@
 894 return
 
 900 rem color picker
-901 &clear 1,24: a$ = chr$(130) + chr$(131) + ", SPC": if ci > 0 then a$ = a$ + ", TAB"
-902 &print a$ at 3+2*(ci>0),24
+901 &clear 1,24: htab 3+2*(ci>0): vtab 24: print chr$(7)chr$(8)", SPC";: if ci > 0 then print ", TAB"
 911 &mod(cl(0),16): if ci = 0 then 930
 912 if cl(0)<0 then cl(0) = 15
 913 if ci = 0 then 930
@@ -207,7 +205,7 @@
 960 goto 911
 
 1100 rem select part
-1110 &clear 1,24: &print chr$(128) + chr$(132) + ", SPC=start/end" at 1,24: m = -1: n = 0: x0 = 0: y0 = 0
+1110 &clear 1,24: vtab 24: print chr$(5)chr$(9)", SPC=start/end": m = -1: n = 0: x0 = 0: y0 = 0
 1111 &rec: &end: &stop: &seekg(a0,0)
 1120 gosub 1140: gosub 20: gosub 1140: ds = 1: if peek(49249)>127 then ds = 10
 1121 if a = 8 and n-ds>=0 then n = n - ds: &seekg(a0,n): goto 1120
@@ -219,7 +217,7 @@
 
 1140 rem highlight part
 1141 &mode=128: &move to x0,y0: &draw 1 at 0,0: cmd = peek(249): &mod(cmd,8): if cmd <> 5 then x0 = peek(224) + peek(225)*256: y0 = peek(226)
-1142 &seekg(a0,n): w$ = str$(m) + " " + str$(n) + " " + cmd$(cmd): &mode=cmd: &clear 28,24 to 32,24: &print w$ at 40-len(w$),24: return
+1142 &seekg(a0,n): w$ = str$(m) + " " + str$(n) + " " + cmd$(cmd): &mode=cmd: &clear 28,24 to 32,24: htab 40-len(w$): vtab 24: print w$: return
 
 1150 rem cut range m..n
 1151 &seekg(a0,n): &seekp(a0,m): &rec: &scan: &draw at 0,0: &end: &stop

@@ -1,19 +1,19 @@
 1 gosub 892: lomem: 8*4096: lm = 8*4096: if peek(-1088)=234 then print chr$(7);"65C02 PROCESSOR REQUIRED": end
 2  d$ = chr$(4): DEF  FN GT16(ADDR) =  PEEK (ADDR) + 256 *  PEEK (ADDR + 1)
 3  print d$;"bload dhrlib": poke 1013,76: poke 1014,0: poke 1015,64: gosub 890
-4  print d$;"bload font1": print d$;"pr#3": poke 232,0: poke 233,96: &aux: poke 233,0
+4  print d$;"bload font1": poke 232,0: poke 233,96: &aux: poke 233,0
 6 lx = 1: ly = 1: dx = 8: dy = 6: yg = 2+16*ly: poke a0,lx: poke a0+1,ly: gosub 800: gosub 1300
 7 poke 232,a1lo: poke 233,a2hi: tilNum = 0: tSize = 16*lx*ly: & vers: &pul > vers(0): &pul > vers(1): &pul > vers(2): gosub 50: gosub 8: goto 60
 
-8 text: home: print chr$(17);: return: rem 40 column text home
-9 text: home: print chr$(18);: &dhr: poke -16302,0: return: rem DHR home
+8 text: home: print d$;"pr#3": print chr$(17): return: rem 40 column text home
+9 home: print chr$(18): &dhr: poke -16302,0: &pr#: return: rem DHR home
 
 10 rem coords
-11 w$ = "   " + str$(x) + "," + str$(y): poke 233,0: &mode=0: &print w$ at 41-len(w$),1
+11 w$ = "   " + str$(x) + "," + str$(y): poke 233,0: &mode=0: htab 41-len(w$): vtab 1: print w$
 12 i = fre(0)
 13 poke 233,a2hi: &mode=128: return
 
-15 poke 233,0: &mode=0: &clear 1,24: &mode=128: &print w$ at 1,24: poke 233,a2hi: return: rem progress message
+15 poke 233,0: &mode=0: &clear 1,24: &mode=128: vtab 24: print w$: poke 233,a2hi: return: rem progress message
 16 poke 233,0: &mode=0: &clear 1,24: goto 13: rem finish progress and return
 
 20 rem get upper
@@ -30,10 +30,9 @@
 
 40 rem edit prompt
 41 if pr > 2 then pr = 1
-42 on pr goto 43,44
-43 w$ = "TAB=prompt, ESC=exit, SPC=toggle": goto 49
-44 w$ = chr$(128)+chr$(129)+chr$(132) + "=move,p=preview,d=dither": goto 49
-49 poke 233,0: &mode=0: &clear 1,24: &print w$ at 1,24: &mode=128: return
+42 htab 1: vtab 24: poke 233,0: &mode=0: &clear 1,24: on pr goto 43,44
+43 print "TAB=prompt, ESC=exit, SPC=toggle": &mode=128: return
+44 print chr$(5)chr$(6)chr$(9)"=move,p=preview,d=dither": &mode=128: return
 
 50 rem path setup
 51 print d$;"prefix": input wd$: print d$;"open sdpii.config": print d$;"read sdpii.config"
@@ -48,20 +47,20 @@
 
 70 rem edit loop
 71  gosub 110: gosub 20: if a = 32 then 70
-72  gosub 90
+72  gosub 90: permanent = 0
 73  if a = asc("P") then gosub 200: goto 70
 74  if a = 27 then poke 233,0: gosub 430: goto 78
 75  if a = asc("D") then gosub 210: goto 70
 76  if a = 9 then pr = pr + 1: gosub 40
 77  goto 70
-78  if a = asc("Y") then gosub 130
+78  if a = asc("Y") then permanent = 1: gosub 130
 79  poke 233,a2hi: goto 60
 
 80 rem select tile >= i0
 81 id = i0: poke 233,0
-82 gosub 1130: &print "^" at i,j: gosub 20: &clear i,j to i+1,j: gosub 100
+82 gosub 1130: htab i: vtab j: print "^": gosub 20: &clear i,j to i+1,j: gosub 100
 83 if (a = 13 or a = 32) and id >= i0 then j0 = id: return
-84 if a = 13 or a = 32 then &clear 1,24: &print "must be after" at 1,24: id = i0
+84 if a = 13 or a = 32 then &clear 1,24: vtab 24: print "must be after": id = i0
 86 goto 82
 
 90 rem move cursor
@@ -87,14 +86,15 @@
 122 for j = 0 to ly*8: &hplot 0,yg+j*dy to lx*14*dx,yg+j*dy: next
 123 return
 
-130 rem scan tile
+130 rem scan tile, permanent=1 means permanent change
 131 w$ = "SCANNING...": gosub 15: d2dec = a0 + 2 + (id+1)*tSize - 1: d1dec = d2dec - tSize/2: for j=0 to ly*8-1: for i=0 to lx-1: &move to i*14,j: addr = peek(38) + peek(39)*256
 132 poke 49237,0: b1 = peek(addr+i): poke 49236,0: b2 = peek(addr+i)
 133 &zoom(b1,4+14*dx*i,2+yg+dy*j): &zoom(b2,4+14*dx*i+7*dx,2+yg+dy*j)
-134 poke d1dec,b1: poke d2dec,b2: d1dec = d1dec - 1: d2dec = d2dec - 1: next: next: goto 16
+134 if permanent > 0 then poke d1dec,b1: poke d2dec,b2: d1dec = d1dec - 1: d2dec = d2dec - 1
+135 next: next: goto 16
 
 140 rem insert
-141 if buf%(1) = 0 then &clear 1,24: &print "clipboard empty" at 1,24: gosub 20: return
+141 if buf%(1) = 0 then &clear 1,24: vtab 24: print "clipboard empty": gosub 20: return
 142 i0 = id
 143 buf%(0) = a0 + 2 + i0*tSize: siz%(0) = (tilNum-i0)*tSize:   buf%(2) = buf%(1) - siz%(0): siz%(2) = siz%(0): i = 0: j = 2: gosub 180
 144 siz%(0) = siz%(1): i = 1: j = 0: gosub 180
@@ -103,7 +103,7 @@
 
 150 rem cut range
 151 gosub 440: if a = 27 then return
-152 i0 = id: &clear 1,24: &print "select last" at 1,24: gosub 80
+152 i0 = id: &clear 1,24: vtab 24: print "select last": gosub 80
 155 buf%(0) = a0 + 2 + i0*tSize: siz%(0) = (j0-i0+1)*tSize:   buf%(1) = lm - siz%(0): siz%(1) = siz%(0): i = 0: j = 1: gosub 180
 156 buf%(2) = buf%(0): siz%(2) = (tilNum - i0)*tSize:   buf%(0) = buf%(0) + siz%(0): siz%(0) = siz%(2): i = 0: j = 2: gosub 180
 157 tilNum = tilNum + i0 - j0 - 1: return
@@ -114,8 +114,10 @@
 183 call 768: return
 
 200 rem preview
-201 gosub 130: &mode=0: for i = 0 to 1: for j = 0 to 1: &tile #id at 41+i*lx-2*lx,4+j*ly: next: next
-202 &mode=128: gosub 130: gosub 40: return
+201 poke 233,0: &clear 1,24: vtab 24: print "scan cannot be undone, proceed (Y/ESC)": gosub 20: if a <> 27 and a <> asc("Y") then 201
+202 poke 233,a2hi: if a <> asc("Y") then gosub 40: return
+203 permanent = 1: gosub 130: &mode=0: for i = 0 to 1: for j = 0 to 1: &tile #id at 41+i*lx-2*lx,4+j*ly: next: next
+204 permanent = 0: &mode=128: gosub 130: gosub 40: return
 
 210 rem dither
 211 ci = 1: &mode=0: gosub 900: if a = 27 then 214
@@ -124,12 +126,12 @@
 214 gosub 40: return
 
 430 rem confirm scan changes, result in a
-431 &mode=0: &clear 1,24: &print "keep changes (Y/N)" at 1,24: gosub 20: if a <> asc("Y") and a <> asc("N") then 431
+431 &mode=0: &clear 1,24: vtab 24: print "keep changes (Y/N)": gosub 20: if a <> asc("Y") and a <> asc("N") then 431
 432 &mode=128: if a = asc("N") and nwtile = 1 then tilNum = tilNum - 1 
 433 return
 
 440 rem confirm dispose clipboard, result in a
-441 if buf%(1) <> 0 then &clear 1,24: &print "drop current clipboard (Y/ESC)" at 1,24: gosub 20: if a = asc("Y") or a = 27 then return
+441 if buf%(1) <> 0 then &clear 1,24: vtab 24: print "drop current clipboard (Y/ESC)": gosub 20: if a = asc("Y") or a = 27 then return
 442 if buf%(1) <> 0 then 441
 443 a = asc("Y"): return
 
@@ -185,8 +187,9 @@
 894 return
 
 900 rem color picker
-901 &clear 1,24: a$ = "ESC, " + chr$(130) + chr$(131) + ", SPC": if ci > 0 then a$ = a$ + ", TAB"
-902 poke 233,0: &print a$ at 3+2*(ci>0),24: poke 233,a2hi
+901 &clear 1,24: poke 233,0: htab 3+2*(ci>0): vtab 24
+902 print "ESC, "chr$(7)chr$(8)", SPC";: if ci > 0 then print ", TAB"
+903 poke 233,a2hi
 911 &mod(cl(0),16): if ci = 0 then 930
 914 if ci>4 then ci = 1
 920 cl(ci) = cl(0): &hcolor=cl(1),cl(2),cl(3),cl(4): &trap at 28,43,184 to 28,43,191
@@ -207,8 +210,8 @@
 1102  poke 233,a2hi: &tile #i-1 at x,y: x = x + lx
 1103  if x + lx > 41 then x = 1: y = y + ly + 1
 1104  next
-1110  &mode=0: poke 233,0: &clear 1,24: &print chr$(132)+" ESC=exit RET=edit ^X=cut ^V=insert" at 1,24
-1111  gosub 1130: &print "^" at i,j: gosub 20: gosub 100: &clear i,j to i+1,j
+1110  &mode=0: poke 233,0: &clear 1,24: vtab 24: print chr$(9)" ESC=exit RET=edit ^X=cut ^V=insert"
+1111  gosub 1130: htab i: vtab j: print "^": gosub 20: gosub 100: &clear i,j to i+1,j
 1112  if a = 27 then poke 233,a2hi: goto 60
 1113  if a = 24 then gosub 150: goto 1100
 1114  if a = 22 then gosub 140: goto 1100

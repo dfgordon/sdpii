@@ -4,6 +4,27 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [Unreleased]
+
+### Fixes
+
+* Tiler discard changes works even if there was a dither
+* Tiler warns that preview scan is not reversible
+
+### New Features
+
+* Map denizens are supported
+* Character output can be hooked to DHGR screen
+
+### Removed Features
+
+* Printing to the DHGR screen in immediate mode
+
+### Breaking Changes
+
+* `&PRINT` is replaced with `&PR#` and regular `PRINT`
+* Extended glyphs in `CHR$` are referenced starting from 5
+
 ## [0.3.0] - 2025-05-04
 
 ### New Features

@@ -202,7 +202,4 @@ clsBits  ENT
          STA   lkBack
 :fin     RTS
 
-illQ     LDX   #ILLQTY
-         JMP   DOERR
-
          FIN

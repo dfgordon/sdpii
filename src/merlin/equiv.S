@@ -8,8 +8,8 @@
 * `_tile = 2` -> text=1,maps=1
 
 _safe    =     0          ; protect memory
-_wrap    =     0          ; wrap cursor
-_bound   =     0          ; bounds check &s
+_wrap    =     1          ; wrap cursor
+_bound   =     1          ; bounds check &s
 _scroll  =     1          ; scroll &
 _pics    =     3          ; see above
 _tile    =     3          ; see above
@@ -33,6 +33,7 @@ gtr_t    =     $cf
 new_t    =     $bf
 end_t    =     $80
 del_t    =     $85
+prn_t    =     $8A
 pop_t    =     $a1
 stop_t   =     $b3
 clear_t  =     $bd
@@ -57,7 +58,7 @@ byt4     =     $ef
 fac1     =     $fa
 fac2     =     $fb
 prod     =     $fc        ; word
-stat     =     $fe        ; AUX flag and general local
+stat     =     $fe        ; general local, AUX status upon exit
 
 * ZP re-using Applesoft HGR locations
 
@@ -100,6 +101,12 @@ INTFLG   =     $12        ; $00=NO, $80=YES
 MVSRC    =     $3C
 MVEND    =     $3E
 MVDST    =     $42
+CH       =     $24
+CV       =     $25
+WLEFT    =     $20
+WWIDTH   =     $21
+WTOP     =     $22
+WBOT     =     $23
 
 * ROM routines for parsing and variables
 
@@ -152,14 +159,21 @@ MEMMOVE  =     $FE2C
 
 * Soft switches
 
+COL40    =     $C00C
 COL80    =     $C00D
 RDMAIN   =     $C002
 WRMAIN   =     $C004
 MAINZP   =     $C008
 ALTZP    =     $C009
-STOR80   =     $C001
+* Causes page switching to work normally (write only)
+* RDMAIN and friends will switch display memory along with other memory.
+ST80OFF  =     $C000
+* Causes a page switch to switch display memory instead.
+* RDMAIN and friends will not switch display memory, but will switch other memory.
+ST80ON   =     $C001
 DHR      =     $C05E
 GRAPHICS =     $C050
+TEXTON   =     $C051
 HIRES    =     $C057
 MIXED    =     $C053
 FULLSCR  =     $C052
@@ -169,3 +183,8 @@ CHKAUX   =     $C01C
 RDBNK2   =     $C080
 RDROM    =     $C081
 RWBNK2   =     $C083
+
+* ProDOS locations
+
+VECTOUT  =     $BE30
+VECTIN   =     $BE32

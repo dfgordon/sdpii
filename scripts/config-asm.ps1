@@ -39,6 +39,8 @@ if ($target -eq "dhrlib") {
     $equivs = $equivs -replace $picpatt,'$1 3'
     $equivs = $equivs -replace $tilpatt,'$1 3'
     $equivs = $equivs -replace $sclpatt,'$1 1'
+    $equivs = $equivs -replace $wrppatt,'$1 1'
+    $equivs = $equivs -replace $bndpatt,'$1 1'
 } elseif ($target -eq "maplib") {
     $equivs = $equivs -replace $picpatt,'$1 0'
     $equivs = $equivs -replace $tilpatt,'$1 3'

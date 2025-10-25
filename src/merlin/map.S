@@ -226,7 +226,8 @@ inirow
          BCC   :chkEW
          CMP   #$F0
          BCC   :south
-:north   LDA   north
+*north
+         LDA   north
          STA   ghost
          BRA   :allout
 :south   LDA   south

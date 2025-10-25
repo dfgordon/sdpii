@@ -38,7 +38,7 @@ stroke   EXT
          FIN
          DO    _tile
 tile     EXT
-print    EXT
+gout     EXT
 clear    EXT
          FIN
 mod      EXT
@@ -108,7 +108,8 @@ dispatch LDA   #$80
          BIT   #$02       ; if 65c02 Z=1, 6502 passes over
          BEQ   :cmos
          JMP   cmosErr
-:cmos    STA   MAINMEM
+:cmos    STZ   ST80ON     ; could be off if app calls utility from 40 column mode
+         STZ   MAINMEM
          LDA   stat
          BPL   :disptch
          STA   AUXMEM
@@ -141,7 +142,7 @@ tryCmd   LDA   #$01       ; suppose matched
          AND   #%11011111 ; to upper (must be letter)
 :chk     CMP   (zptr)
          BEQ   :match
-:nomtch  LDA   #$00       ; not matched
+         LDA   #$00       ; not matched
          STA   stat
 :match   inc16 zptr
          LDA   (zptr)
@@ -449,7 +450,7 @@ ampTile  JSR   chkPnd
 ampAvtr  JSR   chkPnd
          JSR   GETBYT
          STX   avatar
-         RTS
+         JMP   ampDone
 
 * &bank.
 * swap 12 pages starting at (DRAWPTR),2 with $D400-$E000, bank 2.
@@ -472,7 +473,7 @@ ampBank  cp16  DRAWPTR;MVSRC
          CMP   #$E0
          BCC   :loop
          LDA   RDROM
-         RTS
+         JMP   ampDone
 
 * &map at x1,y1 to x2,y2 at x,y
 * x,y are where to start on the screen in units of 14x8 blocks, one-indexed.
@@ -551,17 +552,24 @@ ampScrol JSR   chkAt
 
          DO    _tile
 
-* &print sexpr at X,Y (units of 14x8 tiles, one-indexing)
-ampPrint JSR   FRMEVL
-         JSR   GETSTR
-         ph16  INDEX
-         STY   stat
-         JSR   chkAt
-         JSR   txtPt
-         pl16  INDEX
-         LDA   stat
-         JSR   print
+* &pr# (redirect to gout, set window width to 40)
+ampPrn   mkptr gout;VECTOUT
+         LDA   #$28
+         STA   WWIDTH
          JMP   ampDone
+
+
+* &print sexpr at X,Y (units of 14x8 tiles, one-indexing)
+* ampPrint JSR   FRMEVL
+*          JSR   GETSTR
+*          ph16  INDEX
+*          STY   stat
+*          JSR   chkAt
+*          JSR   txtPt
+*          pl16  INDEX
+*          LDA   stat
+*          JSR   print
+*          JMP   ampDone
 
 * &clear x0,y0 [to x1,y1] (units of 14x8 tiles, one-indexing)
 ampClear JSR   txtPt
@@ -678,7 +686,7 @@ ampZoom  JSR   CHKOPN
          PLX
          DEX
          BNE   :loop
-         RTS
+         JMP   ampDone
 
          FIN
 
@@ -758,8 +766,8 @@ ampTbl   ASC   'VERS',00
          DA    ampTile
          ASC   'AUX',00
          DA    ampAux
-         DFB   print_t,0
-         DA    ampPrint
+         DFB   prn_t,0
+         DA    ampPrn
          DFB   clear_t,0
          DA    ampClear
          FIN
