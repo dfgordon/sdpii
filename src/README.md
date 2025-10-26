@@ -43,9 +43,9 @@ DHRLIB users must issue `&aux` to stash the font, and `POKE 233,0` to use the st
 
 ### Stashed Map Set
 
-Up to 48 map tiles can be stored in pages 212 - 223 of bank 2.  The displaced memory can be saved for later restoration (see e.g. the Mapper program).
+Up to 48 map tiles can be stored in pages 212 - 223 of bank 2.  DHRLIB users must issue `&bank` to stash the tiles, and `POKE 233,0` to use the stashed tiles.  If this is not done, DHRLIB can still render maps, but the tiles will take up space in the lower 48K of main memory.
 
-DHRLIB users must issue `&bank` to stash the tiles, and `POKE 233,0` to use the stashed tiles.  If this is not done, DHRLIB can still render maps, but the tiles will take up space in the lower 48K of main memory.
+This is a ProDOS reserved area that Apple never used.  To minimize the possibility of conflicts, one can save the displaced memory to disk and disable interrupts, restoring when done.  This is done by the `MAP` program.
 
 ### Cyclic Stack
 

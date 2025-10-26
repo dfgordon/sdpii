@@ -123,8 +123,8 @@
 451  home: if d0 + 4*fndcount(0) > 24576 then print "save and restart program first": get a$: goto 60
 460  gosub 300: onerr goto 1049
 462  print d$;"bload ";a$;",a$6000": if peek(24576) <> 2 or peek(24577) <> 2 then print "incompatible tiles": get a$: poke 216,0: goto 60
-470  poke 233,96: &bank: poke 233,0: tcount = (fn gt16 (48840) - 2) / 64
-471  print "tiles stashed in bank 2 at $D400"
+470  call 780: poke 233,96: &bank: poke 233,0: tcount = (fn gt16 (48840) - 2) / 64
+471  print "tiles stashed in bank 2 at $D400": print "IRQ is disabled"
 472  print "saving displaced memory..."
 473  print d$;"bsave ";wd$;"d400.bank2.save,a$6002,l$c00"
 474  tiles = 1: poke 216,0: goto 60
@@ -214,15 +214,20 @@
 1199 print "disk error try again": call -3288: goto 1170
 
 1200 rem quit
-1210 home: vtab 21: print "confirm (Y/N) ": get a$: if a$ = "Y" then 1230
-1220 goto 60
+1210 home: vtab 21: print "confirm (Y/ESC) ": gosub 20: if a = asc("Y") then 1230
+1220 if a = 27 then 60
+1221 goto 1210
 1230 print: print "restoring prefix...": print d$;"prefix";wd$
 1240 if tiles then print "restoring bank switched memory..."
 1250 if tiles then print d$;"bload d400.bank2.save": poke 232,0: poke 233,96: &bank
-1260 end
+1260 if tiles then print "re-enabling IRQ...": call 782
+1270 end
 
-1300 rem setup move memory call
-1310 poke 768,160: poke 769,0: poke 770,32: poke 771,44: poke 772,254: poke 773,96: return
+1300 rem setup machine code
+1310 poke 768,160: poke 769,0: poke 770,32: poke 771,44: poke 772,254: poke 773,96: rem move memory
+1320 poke 780,120: poke 781,96: rem disable interrupt
+1330 poke 782,88: poke 783,96: rem enable interrupt
+1399 return
 
 9000 rem variable descriptions
 9010 rem address types:

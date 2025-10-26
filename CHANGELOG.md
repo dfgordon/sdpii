@@ -4,11 +4,11 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
-## [Unreleased]
+## [0.4.0] - 2025-10-26
 
 ### Fixes
 
-* Tiler discard changes works even if there was a dither
+* Tiler can discard changes even if there was a dither
 * Tiler warns that preview scan is not reversible
 
 ### New Features

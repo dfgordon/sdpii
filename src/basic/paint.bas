@@ -224,8 +224,9 @@
 1180 gosub 9: &seekg(a0,0): &draw at 0,0: gosub 880: gosub 10: return: rem cleanup and return
 
 1200 rem quit
-1210 home: vtab 21: print "confirm (Y/N) ": get a$: if a$ = "Y" then 1230
-1220 goto 40
+1210 home: vtab 21: print "confirm (Y/ESC) ": gosub 20: if a = asc("Y") then 1230
+1220 if a = 27 then 40
+1221 goto 1210
 1230 print: print "restoring prefix...": print d$;"prefix";wd$
 1260 end
 
