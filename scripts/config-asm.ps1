@@ -25,25 +25,26 @@ if (!(Test-Path src/merlin/equiv.bak)) {
     $equivs > src/merlin/equiv.bak
 }
 
-# Now calculate the changes
-if ($equivs -notmatch $picpatt) {
-    Write-Error "equiv.S is missing _pics control flag"
-    exit 1
-}
-if ($equivs -notmatch $tilepatt) {
-    Write-Error "equiv.S is missing _tiles control flag"
+# Check pattern existence
+if ($equivs -notmatch $picpatt -or
+$equivs -notmatch $tilpatt -or
+$equivs -notmatch $sclpatt -or
+$equivs -notmatch $wrppatt -or
+$equivs -notmatch $bndpatt) {
+    Write-Error "equiv.S is missing a conditional assembly flag"
     exit 1
 }
 
+# Now calculate the changes
 if ($target -eq "dhrlib") {
     $equivs = $equivs -replace $picpatt,'$1 3'
-    $equivs = $equivs -replace $tilpatt,'$1 3'
+    $equivs = $equivs -replace $tilpatt,'$1 2'
     $equivs = $equivs -replace $sclpatt,'$1 1'
     $equivs = $equivs -replace $wrppatt,'$1 1'
     $equivs = $equivs -replace $bndpatt,'$1 1'
 } elseif ($target -eq "maplib") {
     $equivs = $equivs -replace $picpatt,'$1 0'
-    $equivs = $equivs -replace $tilpatt,'$1 3'
+    $equivs = $equivs -replace $tilpatt,'$1 2'
     $equivs = $equivs -replace $sclpatt,'$1 0'
     $equivs = $equivs -replace $wrppatt,'$1 0'
     $equivs = $equivs -replace $bndpatt,'$1 0'

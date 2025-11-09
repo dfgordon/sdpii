@@ -66,6 +66,7 @@ submap   EXT
 avatar   EXT
 ins_den  EXT
 del_den  EXT
+search   EXT
 denizens EXT
 xmap     EXT
          FIN
@@ -113,18 +114,26 @@ dispatch LDA   #$80
          LDA   stat
          BPL   :disptch
          STA   AUXMEM
-:disptch mkptr ampTbl;zptr
+:disptch STZ   currTbl
+         LDA   extTbl+1
+         BEQ   :stdTbl
+         cp16  extTbl;zptr
+         BRA   :loop
+:stdTbl  mkptr ampTbl;zptr
+         INC   currTbl
 :loop    JSR   tryCmd
          BNE   :match
          LDA   (zptr)
          BNE   :loop
+         LDA   currTbl
+         BEQ   :stdTbl    ; extTbl did not match, try ampTbl
          JMP   SNERR      ; no match
 :match   LDA   (zptr)
-         STA   absPtr
+         STA   jmpPtr
          LDY   #$01
          LDA   (zptr),Y
-         STA   absPtr+1
-         JMP   (absPtr)
+         STA   jmpPtr+1
+         JMP   (jmpPtr)
 
 * Test TXTPTR for match with zptr.
 * Returns A=1/Z=0 if matching, A=0/Z=1 otherwise.
@@ -190,13 +199,20 @@ ampVers  LDX   version+2
          JSR   psh
          RTS
 
+ampExt   JSR   chkEq
+         JSR   NUMEVL
+         JSR   GETADR
+         STY   extTbl
+         STA   extTbl+1
+         RTS
+
 * &mod (realvar,aexpr)
 ampMod   JSR   binary16
          JSR   mod
          LDY   prod
          LDA   prod+1
          JSR   saveInt
-         JMP   ampDone
+         RTS
 
 * &bit (realvar,aexpr)
 ampBit   JSR   bitwise8
@@ -206,27 +222,27 @@ ampBit   JSR   bitwise8
          BRA   :loop1
 :and     AND   #$01
          JSR   saveByt
-         JMP   ampDone
+         RTS
 
 * &and (realvar,aexpr)
 ampAnd   JSR   bitwise8
          STX   stat
          AND   stat
          JSR   saveByt
-         JMP   ampDone
+         RTS
 
-* &and (realvar,aexpr)
+* &or (realvar,aexpr)
 ampOr    JSR   bitwise8
          STX   stat
          ORA   stat
          JSR   saveByt
-         JMP   ampDone
+         RTS
 
 * &psh < x
 ampPh    JSR   chkLess
          JSR   GETBYT
          JSR   psh
-         JMP   ampDone
+         RTS
 
 * &pul > x
 ampPl    JSR   chkGtr
@@ -236,7 +252,7 @@ ampPl    JSR   chkGtr
          JSR   pul
          TXA
          JSR   saveByt
-         JMP   ampDone
+         RTS
 :err     LDX   #BADTYP
          JMP   DOERR
 
@@ -429,7 +445,7 @@ ampAux   cp16  DRAWPTR;MVSRC
          LDA   RDROM      ; must do twice
          LDY   #$00
          JSR   MEMMOVE
-         JMP   ampDone
+         RTS
 
 * &tile #A at X,Y (units of 14x8 blocks, one-indexing).
 * size of tile can be any multiple of 14x8.
@@ -450,7 +466,7 @@ ampTile  JSR   chkPnd
 ampAvtr  JSR   chkPnd
          JSR   GETBYT
          STX   avatar
-         JMP   ampDone
+         RTS
 
 * &bank.
 * swap 12 pages starting at (DRAWPTR),2 with $D400-$E000, bank 2.
@@ -473,7 +489,7 @@ ampBank  cp16  DRAWPTR;MVSRC
          CMP   #$E0
          BCC   :loop
          LDA   RDROM
-         JMP   ampDone
+         JMP   ampDone    ; needed to prevent infinite keyboard loop, but why?
 
 * &map at x1,y1 to x2,y2 at x,y
 * x,y are where to start on the screen in units of 14x8 blocks, one-indexed.
@@ -497,7 +513,10 @@ ampMap   JSR   chkAt
          JSR   submap
          JMP   ampDone
 
-* &den (op,tile,aux,offset) or &den (op,xmap,0,denizens)
+* &den (0,map_addr,*,den_addr) - init
+* &den (-1,*,*,offset) - delete
+* &den (1,tile,aux,offset) - insert or replace
+* &den (2,*,*,offset) - find
 ampDen   JSR   CHKOPN
          JSR   GETBYT
          STX   stat
@@ -517,13 +536,18 @@ ampDen   JSR   CHKOPN
          LDA   stat
          BEQ   :init
          BMI   :del
-
-         JSR   ins_den
+         DEC
+         BEQ   :insert
+* if none of the above find
+         JSR   search
+         TYA
+         TAX
+         JSR   psh
          JMP   ampDone
-
+:insert  JSR   ins_den
+         JMP   ampDone
 :del     JSR   del_den
          JMP   ampDone
-
 :init    cp16  X00;denizens
          cp16  zptr;xmap
          JMP   ampDone
@@ -690,6 +714,9 @@ ampZoom  JSR   CHKOPN
 
          FIN
 
+* amperands should close by jumping here if they are performing
+* operations that affect or depend on display switches, or if they
+* have disturbed the value of `stat`
 ampDone  LDA   CHKAUX
          STA   stat
          STZ   MAINMEM
@@ -709,13 +736,15 @@ cmosErr  JSR   BELL
 * Table of ampersands.
 * If one is a left-substring of another, longer string must go first.
 * Whenever one is added put it here alphabetically and check:
-* AV,AUX,BANK,BIT,DEN,DHR,MAP,MOD,MODE,MOVE,PSH,PUL,REC,SCAN,SEEKG,SEEKP,SCROLL,STROKE,TELLG,TELLP,TRAP,TILE,VERS,ZOOM
+* AV,AUX,BANK,BIT,DEN,DHR,EXT,MAP,MOD,MODE,MOVE,PSH,PUL,REC,SCAN,SEEKG,SEEKP,SCROLL,STROKE,TELLG,TELLP,TRAP,TILE,VERS,ZOOM
 ampTbl   ASC   'VERS',00
          DA    ampVers
          ASC   'DHR',00
          DA    ampDHR
          ASC   'MODE',00
          DA    ampMode
+         ASC   'EXT',00
+         DA    ampExt
 
          DO    _pics
          DFB   hcolor_t,0
@@ -798,9 +827,11 @@ ampTbl   ASC   'VERS',00
 
          HEX   00         ; end table
 
-absPtr   HEX   00,00
+jmpPtr   HEX   00,00      ; variable ptr for indirect jump
+extTbl   HEX   00,00      ; pointer to extended ampersands
+currTbl  DFB   0          ; current ampersand table id
 
-version  DFB   0,4,0
+version  DFB   0,5,0
 
 noCMOS   ASC   "DHRLIB REQUIRES 65C02",00
 

@@ -157,9 +157,10 @@ get_den  ENT
          SBC   xmap+1
          STA   X00+1
 * Search denizen records for offset `X00`. Changes zptr, prod, stat, byt.
-* Returns offset to record in Y, and tile index in A, or if search fails A=$ff.
+* Returns offset to record in Y, and tile index in A, or if search fails Y=A=$ff.
 * Records must be sorted by offset, maximum record count is 64.
-search   LDA   #2
+search   ENT
+         LDA   #2
          JSR   setup
          BEQ   :fail
          LSR
@@ -218,6 +219,7 @@ search   LDA   #2
          BCC   :go
 
 :fail    LDA   #$FF
+         LDY   #$FF
          RTS
 
          FIN

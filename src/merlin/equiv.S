@@ -12,7 +12,7 @@ _wrap    =     1          ; wrap cursor
 _bound   =     1          ; bounds check &s
 _scroll  =     1          ; scroll &
 _pics    =     3          ; see above
-_tile    =     3          ; see above
+_tile    =     2          ; see above
 maxBrsh  =     7
 
 * Token overloads

@@ -11,8 +11,10 @@ As a corollary, the entire package is always synchronized under the same version
 Since SDP II is geared toward a case where there is an Applesoft front end, we suppose a RAM disk will be utilized for swapping programs and/or variables. The RAM disk uses auxiliary memory, but the following blocks remain available:
 
 * $0000 to $0200 ($80-$FF reserved)
-* $0400 to $0800 (assuming we don't need native text)
-* $0800 to $0E00
+* $0400 to $0800 (assuming we don't need page 1 text)
+* $0800 to $0C00 (assuming we don't need page 2 text)
+* $0C00 to $0E00
+    - Accessing `/RAM` may cause these pages to be overwritten.  In particular, ProDOS will create (or re-create) the volume bitmap here.  Evidently the 16 important bytes are maintained elsewhere.
 * $BF00 to $C000 (reserved)
 
 There is also some bank-switched memory not used by ProDOS:
@@ -33,7 +35,9 @@ This information comes from *Beneath Apple ProDOS*, and from experimenting with 
 
 ## Bank Switching
 
-SDP II uses auxiliary and bank-switched memory to stash a standard size (14x8) font, and a standard size (28x16) map set, without compromising the RAM disk.  The auxiliary stack provides a "cyclic stack" accessible from Applesoft.
+SDP II uses auxiliary and bank-switched memory to stash a standard size (14x8) font, and a standard size (28x16) map set.  The auxiliary stack provides a "cyclic stack" accessible from Applesoft.
+
+This will not interfere with the operation of the RAM disk, but accessing `/RAM` may corrupt the stashed font (see above).
 
 ### Stashed Font
 

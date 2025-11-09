@@ -4,6 +4,19 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.5.0] - 2025-11-09
+
+### Fixes
+
+* Correct documentation concerning pages 12 and 13 of auxiliary memory
+
+### New Features
+
+* Provide hooks for extension libraries
+* Add `&den` operation to locate denizen record
+* Mapper can display auxiliary records
+* Mapper can set denizen's auxiliary field
+
 ## [0.4.0] - 2025-10-26
 
 ### Fixes

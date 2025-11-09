@@ -37,15 +37,15 @@
 50 rem edit prompt
 51 &clear 1,23 to 40,24: vtab 23
 52 print chr$(5)chr$(6)"SPC=place, `/TAB=select, +/-=level"
-53 print chr$(5)chr$(6)chr$(9)"=move, B=bound, "chr$(5)"D=denizen, ESC=menu"
+53 print chr$(5)chr$(6)chr$(9)"=move, B=bound, "chr$(5)chr$(6)"D=denizen, ESC=menu"
 54 rem coords
 55 w$ = str$(x) + "," + str$(y) + "," + str$(z): htab 41-len(w$): vtab 1: &tile #pd at 39,21: &clear 32,1: print w$: i = fre(0): return
 
 60 rem main menu
-61  gosub 8: m = fre(0): print "SDP II Mapper "vers(0)"."vers(1)"."vers(2): l = 3: p = 7: vtab l+p+4
+61  gosub 8: m = fre(0): print "SDP II Mapper "vers(0)"."vers(1)"."vers(2): l = 3: p = 8: vtab l+p+4
 62 print "size=";lx;",";ly: print "tiles=";tcount: print "levels=";lz: print "denizens=";fndcount(0)
 63 w$ = "Select- ": b = 13: gosub 30
-64  on m + 1 goto 450,400,500,1000,1050,900,1150,1200
+64  on m + 1 goto 450,400,500,1000,1050,1100,900,1150,1200
 
 70 rem edit loop
 71  gosub 20: dx = (a = 21 or a = 51 or a = 54 or  a = 57) - (a = 8 or a = 49 or a = 52 or a = 55): dy = (a = 10 or a >= 49 and a <= 51) - (a = 11 or a >= 55 and a <= 57)
@@ -57,7 +57,7 @@
 77  if a = asc("B") then gosub 200: goto 70
 78  if a = asc("+") then gosub 870: gosub 96: goto 70
 79  if a = asc("-") then gosub 880: gosub 96: goto 70
-80  if a = asc("D") then gosub 150: goto 70
+80  if a = asc("D") then gosub 150: gosub 50: goto 70
 81  goto 70
 
 90 rem scroll map
@@ -80,10 +80,11 @@
 140 return
 
 150 rem place or remove denizen
-151 i = l0 + 6 + x + y*lx: j = peek(i): &and(j,127)
+151 i = l0 + 6 + x + y*lx: j = peek(i): &and(j,127): &clear 1,24: htab 1: vtab 24
 152 if peek(49249)>=128 then 160
-153 if fndcount(0)>63 or d0 + 4*fndcount(0) + 4 > lom then &clear 1,23: &clear 1,24: vtab 23: print "no room": get a$: gosub 50: return
-159 poke i,j+128: &den(1,pd,0,i-a0+8*(a0=m0)): return
+153 if fndcount(0)>63 or d0 + 4*fndcount(0) + 4 > lom then print "no room": get a$: return
+155 a = 48: if peek(49250)>=128 then print "type digit for aux value": gosub 20
+159 poke i,j+128: &den(1,pd,a-48,i-a0+8*(a0=m0)): return
 160 poke i,j: &den(255,0,0,i-a0+8*(a0=m0)): return
 
 200 rem set boundary tiles
@@ -151,7 +152,7 @@
 
 800 rem arrays
 810  dim pn$(9), vers(2): pn$(0) = "Load Tiles": pn$(1) = "New Map": pn$(2) = "Load Map": pn$(3) = "Save Map"
-820  pn$(4) = "Edit": pn$(5) = "Settings": pn$(6) = "Catalog": pn$(7) = "Exit": return
+820  pn$(4) = "Edit": pn$(5) = "Auxiliary": pn$(6) = "Settings": pn$(7) = "Catalog": pn$(8) = "Exit": return
 
 850 rem init extended header
 851 for i = 0 to 7: poke a0-8+i,0: next: poke a0-7,1: poke a0-6,lz: return
@@ -204,6 +205,15 @@
 1050  rem edit map
 1060  gosub 600: gosub 700: gosub 9: x = lx/2: y = ly/2: gosub 860: pd = 0
 1070  poke -16302,0: gosub 50: ds = 0: gosub 96: goto 70
+
+1100 rem view aux records
+1101 home: if lx=0 then print "no map": get a$: goto 60
+1102 print "Auxiliary Records": print "---": j = 0: i=d0-aux
+1103 if i >= d0 or j > 1 then 1110
+1104 a = peek(i): if a=0 then j = j + 1: print: print "---"
+1105 if a>0 then print chr$(a);: j = 0
+1106 i = i + 1: goto 1103
+1110 print: get a$: goto 60
 
 1150 rem catalog
 1160 home: print d$;"cat"
