@@ -52,14 +52,14 @@ foreach ($f in $basicFiles) {
 }
 
 # Assemble and put MAPLIB
-./scripts/config-asm -target maplib
+./scripts/config-asm -target maplib -load_addr 16384
 Merlin32 ./src/merlin ./src/merlin/link32.S
 a2kit get -f ./src/merlin/dhrlib | a2kit put -d $hd -f ($prodosPath + "maplib") -t bin -a 16384
 a2kit get -f ./src/merlin/dhrlib | a2kit pack -a 16384 -t bin -o prodos -f maplib > ./fimg/maplib.json
 Move-Item ./src/merlin/dhrlib ./build/maplib
 
 # Assemble and put DHRLIB
-./scripts/config-asm -target dhrlib
+./scripts/config-asm -target dhrlib -load_addr 16384
 Merlin32 ./src/merlin ./src/merlin/link32.S
 a2kit get -f ./src/merlin/dhrlib | a2kit put -d $hd -f ($prodosPath + "dhrlib") -t bin -a 16384
 a2kit get -f ./src/merlin/dhrlib | a2kit pack -a 16384 -t bin -o prodos -f dhrlib > ./fimg/dhrlib.json

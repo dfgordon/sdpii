@@ -62,7 +62,8 @@ pul      EXT
 * imports from MAP or DENIZEN
 
          DO    _tile/2
-submap   EXT
+makemap  EXT
+drawmap  EXT
 avatar   EXT
 ins_den  EXT
 del_den  EXT
@@ -105,16 +106,18 @@ chkpp    EXT
 
 * Main Ampersand dispatcher
 * KEEP THIS AS THE FIRST ADDRESSABLE ITEM
-dispatch LDA   #$80
+dispatch DO    _bound
+         LDA   #$80
          BIT   #$02       ; if 65c02 Z=1, 6502 passes over
          BEQ   :cmos
          JMP   cmosErr
+         FIN
 :cmos    STZ   ST80ON     ; could be off if app calls utility from 40 column mode
-         STZ   MAINMEM
+         LDA   CHKAUX
+         STA   saveAux
          LDA   stat
-         BPL   :disptch
-         STA   AUXMEM
-:disptch STZ   currTbl
+         JSR   restore
+         STZ   currTbl
          LDA   extTbl+1
          BEQ   :stdTbl
          cp16  extTbl;zptr
@@ -134,6 +137,25 @@ dispatch LDA   #$80
          LDA   (zptr),Y
          STA   jmpPtr+1
          JMP   (jmpPtr)
+
+* Location to save the caller's aux-state,
+* in contrast stat is used to save the library's aux-state.
+saveAux  DFB   0
+
+* amperands should close by jumping here if they are performing
+* operations that affect or depend on display switches, or if they
+* have disturbed the value of `stat`
+ampDone  LDA   CHKAUX
+         STA   stat
+         LDA   saveAux
+         JSR   restore
+         RTS
+
+* restore the aux state based on A
+restore  STZ   MAINMEM
+         BPL   :fin
+         STZ   AUXMEM
+:fin     RTS
 
 * Test TXTPTR for match with zptr.
 * Returns A=1/Z=0 if matching, A=0/Z=1 otherwise.
@@ -491,26 +513,39 @@ ampBank  cp16  DRAWPTR;MVSRC
          LDA   RDROM
          JMP   ampDone    ; needed to prevent infinite keyboard loop, but why?
 
-* &map at x1,y1 to x2,y2 at x,y
+* &map [at x1,y1 to x2,y2] [at x,y]
 * x,y are where to start on the screen in units of 14x8 blocks, one-indexed.
 * x1,y1 and x2,y2 define the submap.
 * x1,y1 should be in [-128,127].  x2,y2 should be in [0,255].
 * Submap can be partially out of bounds, but not completely out of bounds.
-ampMap   JSR   chkAt
+* The `at..to..` part creates a detached submap in the input buffer.
+* The `at...` part renders the detached submap.
+* By omitting one or the other part the actions can be separated.
+ampMap   cp16  TXTPTR;zptr
+         JSR   chkAt
          JSR   mapPt
          STX   x1
          STY   x1+1
+         LDA   #to_t
+         CMP   (TXTPTR)
+         BNE   :only
          JSR   chkTo
          JSR   GETBYT
          STX   x2
          JSR   CHKCOM
          JSR   GETBYT
          STX   x2+1
-         JSR   chkAt
+         JSR   makemap
+         LDA   #at_t
+         CMP   (TXTPTR)
+         BEQ   :also
+         JMP   ampDone
+:only    cp16  zptr;TXTPTR
+:also    JSR   chkAt
          JSR   txtPt
          STX   X0
          STY   X0+1
-         JSR   submap
+         JSR   drawmap
          JMP   ampDone
 
 * &den (0,map_addr,*,den_addr) - init
@@ -595,14 +630,26 @@ ampPrn   mkptr gout;VECTOUT
 *          JSR   print
 *          JMP   ampDone
 
-* &clear x0,y0 [to x1,y1] (units of 14x8 tiles, one-indexing)
-ampClear JSR   txtPt
-         STX   X0
+* &clear [x0,y0] [to x1,y1] (units of 14x8 tiles, one-indexing)
+ampClear LDX   CH
+         LDY   CV
+         LDA   (TXTPTR)
+         CMP   #':'
+         BEQ   :curs
+         CMP   #0
+         BEQ   :curs
+         CMP   #to_t
+         BEQ   :curs
+         JSR   txtPt
+:curs    STX   X0
          STY   Y0
          LDA   (TXTPTR)
          CMP   #to_t
          BEQ   :to
-         LDA   #39
+         CLC
+         LDA   WLEFT
+         ADC   WWIDTH
+         DEC
          LDY   Y0
          BRA   :go
 :to      JSR   chkTo
@@ -610,9 +657,11 @@ ampClear JSR   txtPt
          TXA
 :go      SEC
          SBC   X0
+         DO    _bound
          BPL   :ok
          LDX   #ILLQTY
          JMP   DOERR
+         FIN
 :ok      INC
          LDX   X0
 :loop    PHY
@@ -714,14 +763,7 @@ ampZoom  JSR   CHKOPN
 
          FIN
 
-* amperands should close by jumping here if they are performing
-* operations that affect or depend on display switches, or if they
-* have disturbed the value of `stat`
-ampDone  LDA   CHKAUX
-         STA   stat
-         STZ   MAINMEM
-         RTS
-
+         DO    _bound
 cmosErr  JSR   BELL
          LDY   #$00
 :PR      LDA   noCMOS,Y
@@ -732,6 +774,7 @@ cmosErr  JSR   BELL
          JMP   :PR
 :restart JSR   STKINI
          JMP   RESTART
+         FIN
 
 * Table of ampersands.
 * If one is a left-substring of another, longer string must go first.
@@ -831,9 +874,11 @@ jmpPtr   HEX   00,00      ; variable ptr for indirect jump
 extTbl   HEX   00,00      ; pointer to extended ampersands
 currTbl  DFB   0          ; current ampersand table id
 
-version  DFB   0,5,0
+version  DFB   0,6,0
 
+         DO    _bound
 noCMOS   ASC   "DHRLIB REQUIRES 65C02",00
+         FIN
 
 * bits after the command code
 cmdBits  ENT

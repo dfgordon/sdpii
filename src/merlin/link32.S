@@ -1,7 +1,7 @@
 * Merlin 32 Linker
          TYP   $06
          DSK   dhrlib
-         ORG   $004000
+         ORG   $4000
          ASM   dhrlib.S
          ASM   parse.S
          ASM   core.S

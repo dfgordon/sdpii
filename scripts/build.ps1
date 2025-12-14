@@ -70,14 +70,14 @@ a2kit get -f ./src/merlin/identify | a2kit pack -a 768 -t bin -o prodos -f ident
 Move-Item ./src/merlin/identify ./build/identify
 
 # Assemble, put, and archive MAPLIB
-./scripts/config-asm -target maplib
+./scripts/config-asm -target maplib -load_addr 16384
 Merlin32 ./src/merlin ./src/merlin/link32.S
 a2kit get -f ./src/merlin/dhrlib | a2kit put -d $floppy -f maplib -t bin -a 16384
 a2kit get -f ./src/merlin/dhrlib | a2kit pack -a 16384 -t bin -o prodos -f maplib > ./fimg/maplib.json
 Move-Item ./src/merlin/dhrlib ./build/maplib
 
 # Assemble, put, and archive DHRLIB
-./scripts/config-asm -target dhrlib
+./scripts/config-asm -target dhrlib -load_addr 16384
 Merlin32 ./src/merlin ./src/merlin/link32.S
 a2kit get -f ./src/merlin/dhrlib | a2kit put -d $floppy -f dhrlib -t bin -a 16384
 a2kit get -f ./src/merlin/dhrlib | a2kit pack -a 16384 -t bin -o prodos -f dhrlib > ./fimg/dhrlib.json

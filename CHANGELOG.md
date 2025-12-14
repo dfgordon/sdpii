@@ -4,6 +4,21 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.6.0] - 2025-12-14
+
+### New Features
+
+* Map operations can be factored for better integration into compression schemes
+* Redirected output is safe to invoke from either main or aux text pages
+* Script to build game versions of libraries assembled at $800
+* `&clear` defaults to current cursor and window margins
+* `_bound` controls whether CMOS checker is included (omitting saves space)
+
+### New Behaviors
+
+* Submap views are always copied to the input buffer before display
+* Ampersands restore the caller's actual PAGE2 state rather than assuming MAIN
+
 ## [0.5.0] - 2025-11-09
 
 ### Fixes

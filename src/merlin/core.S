@@ -794,16 +794,18 @@ tile     ENT
 * character to output should be in A.
 gout     ENT
          CLD              ; required per Apple
-         STA   stat
          PHX
          PHY
+         PHA
+         TAX              ; save char
+         LDA   CHKAUX
          PHA
          LDA   DRAWPTR+1
          PHA
          BNE   :go
          LDA   #$08
          STA   DRAWPTR+1
-:go      LDA   stat
+:go      TXA              ; restore char
          EOR   #$80
          CMP   #$0D
          BEQ   :nxtRow
@@ -836,6 +838,9 @@ gout     ENT
          PLA
          STA   DRAWPTR+1
          PLA
+         BPL   :mainmem
+         STZ   AUXMEM
+:mainmem PLA
          PLY
          PLX
          RTS

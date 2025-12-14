@@ -28,17 +28,18 @@ rowTbHi  EXT
 rowTbLo  EXT
 get_den  EXT
 
+* These are saved in the input buffer with the submap,
+* this way external code can more easily find them.
+endSub   EQU   $200       ; word
+begPtr   EQU   $202       ; word
+endMap   EQU   $204       ; word
+subDat   EQU   $206
+
          DO    _tile/2
-begMVw   DFB   0,0        ; start of view in map coords (tiles)
-endMVw   DFB   0,0        ; end of view in map coords (tiles)
-sizMVw   DFB   0,0        ; size of view in tiles
-cntMVw   DFB   0,0        ; countdown of tiles in view
-endMap   DFB   0,0        ; total map dimensions in tiles
-endScrn  DFB   0,0        ; end of view in screen coords (cells)
-rowAdv   DA    0
+avCell   DFB   0,0        ; cell index of the avatar
+endCell  DFB   0,0        ; cell index at end of view
 avatar   ENT
          DFB   0
-ghost    DFB   0
 * order matters : west,east,south,north
 west     DFB   0
 east     DFB   8
@@ -54,6 +55,7 @@ north    DFB   9
 * prod,ROWPTR modified.
 * If DRAWPTR in ZP use stashed tiles in bank 2.
 * Returns starting X in COLUMN, preserves Y.
+* TODO: maybe can simplify, no longer need to return anything
 fstTile  STX   COLUMN
          STA   prod+1
          STZ   prod
@@ -108,183 +110,166 @@ fstTile  STX   COLUMN
 :ret     PLY
          RTS
 
-* Draw map row starting at (stream) for cntMVw+0 tiles at X,Y.
-* It is OK if (stream) points to a ghost cell.
-* fac1 and fac2 are a 16-bit mask, 0 = normal cell, 1 = ghost cell.
-* Y is preserved.  X,fac1,fac2,cntMVw+0 modified.
-mkrow
-:loop    LSR   fac2
-         ROR   fac1
-         BCS   :bound
-         LDA   cntMVw+1
-         BNE   :normal
-         LDA   sizMVw+0
-         LSR
+* Replace tile with avatar or denizen as needed.
+replace  PHA              ; stash terrain
+         LDA   x1
          INC
-         CMP   cntMVw+0
-         BNE   :normal
+         CMP   avCell
+         BNE   :noAv
+         LDA   x1+1
+         INC
+         CMP   avCell+1
+         BNE   :noAv
+         PLA
          LDA   avatar
-         BRA   :tile
-:normal  LDA   (stream)
+         RTS
+:noAv    PLA
          BMI   :denizen
-         BRA   :tile
-:denizen PHY
+         RTS
+:denizen addu8 fac1;stream
          JSR   get_den
-         PLY
-         BRA   :tile
-:bound   LDA   ghost
-:tile    JSR   fstTile
-         inc16 stream
-         LDX   COLUMN     ; set by fstTile
-         INX
-         INX
-         DEC   cntMVw+0
-         BNE   :loop
+         PHA
+         subu8 fac1;stream
+         PLA
          RTS
 
-* Prepare to render a map view from x1,x1+1 to x2,x2+1,
-* starting at screen cell X0,X0+1 (14x8 blocks, 0-based).
-* Advances stream to the upper-left cell in the view.
-* Sets begMVw,endMVw,endMap,endScrn+1,cntMVw+1.
-* Increments x2,x2+1, then sets rowAdv to endMap + x1 - x2.
-inimap   LDA   (stream)
+* Multiply fac1:u8 by fac2:i8 using a naive method,
+* actually should be effective for the case we have.
+mului    LDA   fac2
+         BMI   :neg
+         JSR   mulbb
+         RTS
+:neg     STZ   prod
+         STZ   prod+1
+         LDX   fac2
+:loop    subu8 fac1;prod
+         INX
+         BMI   :loop
+         RTS
+
+* Copy submap from x1,x1+1 to x2,x2+1 into the input buffer,
+* where (stream) should point to the map level header.
+* The submap view is allowed to be partly out of bounds, in which
+* case the N, S, E, W boundary tiles will be used as needed.
+* Sets endMap, increments x2/x2+1, disturbs stream.
+* Handling boundaries requires care since we have 8-bit signed
+* integers in an environment with up to 128x128 maps.
+makemap  ENT
+         LDA   (stream)
          STA   endMap
-         STA   rowAdv
-         STZ   rowAdv+1
-         STA   fac1
          inc16 stream
          LDA   (stream)
          STA   endMap+1
          inc16 stream
-
+* header for submap (hdim,vdim)
+         INC   x2
+         INC   x2+1
+         SEC
+         LDA   x2
+         SBC   x1
+         STA   endSub
+         SEC
+         LDA   x2+1
+         SBC   x1+1
+         STA   endSub+1
+* load the boundary conditions
          LDX   #3
 :rdbnd   LDA   (stream)
          STA   west,X
          inc16 stream
          DEX
          BPL   :rdbnd
-
-         INC   x2
-         INC   x2+1
+* advance stream to starting row and set begPtr
+         LDA   endMap
+         STA   fac1       ; u8
          LDA   x1+1
-         STA   fac2
-         BPL   :posy
-:negy    subu8 rowAdv;stream
-         INC   fac2
-         BNE   :negy
-         BRA   :horadj
-:posy    JSR   mulbb
+         STA   fac2       ; i8
+         JSR   mului
          add16 prod;stream
-:horadj  addi8 x1;stream
-         addi8 x1;rowAdv
-         SEC
-         LDA   rowAdv
-         SBC   x2
-         STA   rowAdv
-         LDA   rowAdv+1
-         SBC   #$00
-         STA   rowAdv+1
-         cp16  x1;begMVw
-         cp16  x2;endMVw
-         SEC
-         LDA   x2+1
-         SBC   x1+1
-         STA   cntMVw+1
-         ASL
-         CLC
-         ADC   X0+1
-         STA   endScrn+1  ; start_row + rowCount*2
-         RTS
-
-* Reset X, x1, x2, endScrn+0, cntMVw+0, sizMVw+0,
-* and set up the ghost cell bitmask per row.
-* For any row there can be only one ghost type.
-* The ghost type is set to north, south, east, or west.
-* X is set to X0, Y is preserved.
-inirow   
-         cp16  begMVw;x1
-         cp16  endMVw;x2
-         LDX   X0
-         SEC
-         LDA   x2
-         SBC   x1
-         STA   cntMVw+0
-         STA   sizMVw+0
-         ASL
-         CLC
-         ADC   X0
-         STA   endScrn
-         STZ   fac1
-         STZ   fac2
-         SEC
-         TYA
-         SBC   X0+1
-         LSR
-         CLC
-         ADC   x1+1       ; A = vertical map coord
-         CMP   endMap+1
-         BCC   :chkEW
-         CMP   #$F0
-         BCC   :south
-*north
-         LDA   north
-         STA   ghost
-         BRA   :allout
-:south   LDA   south
-         STA   ghost
-:allout  LDA   #$FF
-         STA   fac1
-         STA   fac2
-         RTS
-
-:chkEW   LDA   x1
-         BMI   :west
-         LDA   x2
-         DEC
-         CMP   endMap
+         cp16  stream;begPtr
+         addi8 x1;begPtr
+* start main loop over y
+         LDX   #0
+         LDY   x1+1
+:loopy   CPY   #$F0
+         BCS   :north
+         CPY   x2+1
+         BCS   :fin
+         CPY   endMap+1
+         BCS   :south
+         PHY              ; save outer loop Y
+         LDY   x1         ; init inner loop Y
+:loopx   CPY   #$F0
+         BCS   :west
+         CPY   x2
+         BCS   :nexty
+         CPY   endMap
          BCS   :east
-         RTS
-:west    SEC
-         ROL   fac1
-         ROL   fac2
-         INC
-         BMI   :west
-         LDA   west
-         STA   ghost
-         RTS
-:east    LDA   endMap
-         SEC
-         SBC   #16        ; width of bit mask
-         SEC
-         SBC   x1         ; A = endMap-16-x1 = -|shifts|
-                          ; assumes column count < 16
-:rloop   SEC
-         ROR   fac2
-         ROR   fac1
-         INC
-         BMI   :rloop
-         LDA   east
-         STA   ghost
-         RTS
-
-* Draw portion of map at (stream) from x1,x1+1 to x2,x2+1,
-* starting at the screen location X0,X0+1 (14x8 blocks, 0-based).
-* Map coords are signed 8-bit, negative numbers are OK.
-* Map dimensions are expected to be at (stream),(stream)+1.
-* Inputs are undefined upon completion.
-submap   ENT
-         JSR   inimap
-         LDY   X0+1
-         LSR   cntMVw+1
-:loop    JSR   inirow
-         JSR   mkrow
-         DEC   cntMVw+1
+         LDA   (stream),Y
+:wrt     STA   subDat,X
+         INX
          INY
-         INY
-         CPY   endScrn+1
-         BPL   :fin
-         add16 rowAdv;stream
-         BRA   :loop
+         BRA   :loopx
+:west    LDA   west
+         BRA   :wrt
+:east    LDA   east
+         BRA   :wrt
+:nexty   addu8 endMap;stream
+         PLY              ; restore outer loop y
+         INY              ; advance *and* set flags
+         BRA   :loopy
 :fin     RTS
+* handle full rows of ghost cells
+:north   LDA   north
+         BRA   :ghosts
+:south   LDA   south
+:ghosts  PHY
+         LDY   x1
+:loopx2  STA   subDat,X
+         INX
+         INY
+         CPY   x2
+         BMI   :loopx2
+         BRA   :nexty
+
+* Draw the submap currently in the input buffer
+* at screen coordinate X0,X0+1 (14x8 cells, 0-based).
+drawmap  ENT
+         cp16  begPtr;stream
+         cp16  endSub;endCell
+         cp16  endSub;avCell
+         add16 X0;avCell  ; 2 8-bit adds
+         ASL   endCell
+         ASL   endCell+1
+         add16 X0;endCell ; 2 8-bit adds
+         cp16  X0;x1
+         LDX   #0
+         STZ   fac1       ; track column offset in tile units
+:loop    LDA   subDat,X
+         PHX
+         JSR   replace
+         LDX   x1
+         LDY   x1+1
+         JSR   fstTile
+         PLX
+         INX
+         INC   fac1
+         LDA   x1
+         INC
+         INC
+         STA   x1
+         CMP   endCell
+         BMI   :loop
+         addu8 endMap;stream
+         STZ   fac1
+         LDA   X0
+         STA   x1
+         LDA   x1+1
+         INC
+         INC
+         STA   x1+1
+         CMP   endCell+1
+         BMI   :loop
+         RTS
 
          FIN
