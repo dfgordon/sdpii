@@ -212,7 +212,7 @@ chkStep  LDA   #step_t
          JMP   CHRGET
 :err     JMP   SNERR
 
-* &vers - push version numbers to cyclic stack
+* &vers - push version numbers to auxiliary stack
 ampVers  LDX   version+2
          JSR   psh
          LDX   version+1
@@ -266,6 +266,18 @@ ampPh    JSR   chkLess
          JSR   psh
          RTS
 
+* &psh16 < x
+* push hi-byte and then lo-byte onto auxiliary stack
+ampPh16  JSR   chkLess
+         JSR   NUMEVL
+         JSR   GETADR
+         PHY
+         TAX
+         JSR   psh
+         PLX
+         JSR   psh
+         RTS
+
 * &pul > x
 ampPl    JSR   chkGtr
          JSR   PTRGET
@@ -314,11 +326,9 @@ ampColor JSR   GETBYT
 :dither  JSR   CHRGET
          JSR   GETBYT
          PHX
-         JSR   CHKCOM
-         JSR   GETBYT
+         JSR   COMBYT
          PHX
-         JSR   CHKCOM
-         JSR   GETBYT
+         JSR   COMBYT
          PHX
 :set     PLX
          PLA
@@ -513,16 +523,27 @@ ampBank  cp16  DRAWPTR;MVSRC
          LDA   RDROM
          JMP   ampDone    ; needed to prevent infinite keyboard loop, but why?
 
-* &map [at x1,y1 to x2,y2] [at x,y]
-* x,y are where to start on the screen in units of 14x8 blocks, one-indexed.
+* &map { (addr) | at x1,y1 to x2,y2 [at x,y] | at x,y }
+* addr should point to the map level's header, it will be put in stream.
 * x1,y1 and x2,y2 define the submap.
 * x1,y1 should be in [-128,127].  x2,y2 should be in [0,255].
 * Submap can be partially out of bounds, but not completely out of bounds.
+* x,y are where to start on the screen in units of 14x8 blocks, one-indexed.
 * The `at..to..` part creates a detached submap in the input buffer.
-* The `at...` part renders the detached submap.
-* By omitting one or the other part the actions can be separated.
+* The `at x,y` part renders the detached submap, this can be done at the
+* same time the sumbmap is created, or in a separate call.
 ampMap   cp16  TXTPTR;zptr
-         JSR   chkAt
+         LDA   #at_t
+         CMP   (TXTPTR)
+         BEQ   :at
+         JSR   CHKOPN
+         JSR   NUMEVL
+         JSR   GETADR
+         STY   stream
+         STA   stream+1
+         JSR   CHKCLS
+         RTS
+:at      JSR   chkAt
          JSR   mapPt
          STX   x1
          STY   x1+1
@@ -532,8 +553,7 @@ ampMap   cp16  TXTPTR;zptr
          JSR   chkTo
          JSR   GETBYT
          STX   x2
-         JSR   CHKCOM
-         JSR   GETBYT
+         JSR   COMBYT
          STX   x2+1
          JSR   makemap
          LDA   #at_t
@@ -779,7 +799,7 @@ cmosErr  JSR   BELL
 * Table of ampersands.
 * If one is a left-substring of another, longer string must go first.
 * Whenever one is added put it here alphabetically and check:
-* AV,AUX,BANK,BIT,DEN,DHR,EXT,MAP,MOD,MODE,MOVE,PSH,PUL,REC,SCAN,SEEKG,SEEKP,SCROLL,STROKE,TELLG,TELLP,TRAP,TILE,VERS,ZOOM
+* AV,AUX,BANK,BIT,DEN,DHR,EXT,MAP,MOD,MODE,MOVE,PSH16,PSH,PUL,REC,SCAN,SEEKG,SEEKP,SCROLL,STROKE,TELLG,TELLP,TRAP,TILE,VERS,ZOOM
 ampTbl   ASC   'VERS',00
          DA    ampVers
          ASC   'DHR',00
@@ -863,6 +883,8 @@ ampTbl   ASC   'VERS',00
          DA    ampOr
          ASC   'BIT',00
          DA    ampBit
+         ASC   'PSH16',00
+         DA    ampPh16
          ASC   'PSH',00
          DA    ampPh
          ASC   'PUL',00
@@ -874,7 +896,7 @@ jmpPtr   HEX   00,00      ; variable ptr for indirect jump
 extTbl   HEX   00,00      ; pointer to extended ampersands
 currTbl  DFB   0          ; current ampersand table id
 
-version  DFB   0,6,0
+version  DFB   0,7,0
 
          DO    _bound
 noCMOS   ASC   "DHRLIB REQUIRES 65C02",00

@@ -56,7 +56,7 @@ x2       =     $eb        ; word
 x3       =     $ed        ; word
 byt4     =     $ef
 fac1     =     $fa
-fac2     =     $fb
+fac2     =     $fb        ; must be fac1+1
 prod     =     $fc        ; word
 stat     =     $fe        ; general local, AUX status upon exit
 
@@ -95,6 +95,7 @@ LOWTR    =     $9B
 TXTPTR   =     $B8
 VALTYP   =     $11        ; $00=NUM, $FF=STR
 INTFLG   =     $12        ; $00=NO, $80=YES
+TXTMSK   =     $32        ; text mask, normal=$FF, flash=$7f, inverse=$3f
 
 * ZP used by monitor or firmware
 
@@ -126,6 +127,7 @@ NUMEVL   =     $DD67
 GETNUM   =     $E746
 GETADR   =     $E752
 GETBYT   =     $E6F8
+COMBYT   =     $E74C      ; calls CHKCOM, GETBYT
 STRINI   =     $E3D5
 MOVSTR   =     $E5E2
 GETSTR   =     $E6DC

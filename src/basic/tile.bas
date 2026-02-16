@@ -9,12 +9,12 @@
 9 home: print chr$(18): &dhr: poke -16302,0: &pr#: return: rem DHR home
 
 10 rem coords
-11 w$ = "   " + str$(x) + "," + str$(y): poke 233,0: &mode=0: htab 41-len(w$): vtab 1: print w$
+11 w$ = "   " + str$(x) + "," + str$(y): poke 233,0: htab 41-len(w$): vtab 1: print w$
 12 i = fre(0)
-13 poke 233,a2hi: &mode=128: return
+13 poke 233,a2hi: return
 
-15 poke 233,0: &mode=0: &clear 1,24: &mode=128: vtab 24: print w$: poke 233,a2hi: return: rem progress message
-16 poke 233,0: &mode=0: &clear 1,24: goto 13: rem finish progress and return
+15 poke 233,0: &clear 1,24: inverse: vtab 24: print w$: poke 233,a2hi: normal: return: rem progress message
+16 poke 233,0: &clear 1,24: goto 13: rem finish progress and return
 
 20 rem get upper
 21 a = peek(49152): if a < 128 then 21
@@ -30,9 +30,9 @@
 
 40 rem edit prompt
 41 if pr > 2 then pr = 1
-42 htab 1: vtab 24: poke 233,0: &mode=0: &clear 1,24: on pr goto 43,44
-43 print "TAB=prompt, ESC=exit, SPC=toggle": &mode=128: return
-44 print chr$(5)chr$(6)chr$(9)"=move,p=preview,d=dither": &mode=128: return
+42 htab 1: vtab 24: poke 233,0: &clear 1,24: on pr goto 43,44
+43 print "TAB=prompt, ESC=exit, SPC=toggle": return
+44 print chr$(5)chr$(6)chr$(9)"=move,p=preview,d=dither": return
 
 50 rem path setup
 51 print d$;"prefix": input wd$: print d$;"open sdpii.config": print d$;"read sdpii.config"
@@ -47,7 +47,7 @@
 
 70 rem edit loop
 71  gosub 110: gosub 20: if a = 32 then 70
-72  gosub 90: permanent = 0
+72  gosub 90: &mode=128: permanent = 0
 73  if a = asc("P") then gosub 200: goto 70
 74  if a = 27 then poke 233,0: gosub 430: goto 78
 75  if a = asc("D") then gosub 210: goto 70
@@ -87,7 +87,7 @@
 123 return
 
 130 rem scan tile, permanent=1 means permanent change
-131 w$ = "SCANNING...": gosub 15: d2dec = a0 + 2 + (id+1)*tSize - 1: d1dec = d2dec - tSize/2: for j=0 to ly*8-1: for i=0 to lx-1: &move to i*14,j: addr = peek(38) + peek(39)*256
+131 &mode=128: w$ = "SCANNING...": gosub 15: d2dec = a0 + 2 + (id+1)*tSize - 1: d1dec = d2dec - tSize/2: for j=0 to ly*8-1: for i=0 to lx-1: &move to i*14,j: addr = peek(38) + peek(39)*256
 132 poke 49237,0: b1 = peek(addr+i): poke 49236,0: b2 = peek(addr+i)
 133 &zoom(b1,4+14*dx*i,2+yg+dy*j): &zoom(b2,4+14*dx*i+7*dx,2+yg+dy*j)
 134 if permanent > 0 then poke d1dec,b1: poke d2dec,b2: d1dec = d1dec - 1: d2dec = d2dec - 1
@@ -117,7 +117,7 @@
 201 poke 233,0: &clear 1,24: vtab 24: print "scan cannot be undone, proceed (Y/ESC)": gosub 20: if a <> 27 and a <> asc("Y") then 201
 202 poke 233,a2hi: if a <> asc("Y") then gosub 40: return
 203 permanent = 1: gosub 130: &mode=0: for i = 0 to 1: for j = 0 to 1: &tile #id at 41+i*lx-2*lx,4+j*ly: next: next
-204 permanent = 0: &mode=128: gosub 130: gosub 40: return
+204 permanent = 0: gosub 130: gosub 40: return
 
 210 rem dither
 211 ci = 1: &mode=0: gosub 900: if a = 27 then 214
@@ -126,8 +126,8 @@
 214 gosub 40: return
 
 430 rem confirm scan changes, result in a
-431 &mode=0: &clear 1,24: vtab 24: print "keep changes (Y/N)": gosub 20: if a <> asc("Y") and a <> asc("N") then 431
-432 &mode=128: if a = asc("N") and nwtile = 1 then tilNum = tilNum - 1 
+431 &clear 1,24: vtab 24: print "keep changes (Y/N)": gosub 20: if a <> asc("Y") and a <> asc("N") then 431
+432 if a = asc("N") and nwtile = 1 then tilNum = tilNum - 1 
 433 return
 
 440 rem confirm dispose clipboard, result in a
@@ -180,7 +180,7 @@
 820 for i = 0 to 2: buf%(i) = 0: next: return
 
 890 rem tile workspace
-891 a0 = fn gt16(48825) + fn gt16(48840): a1lo = a0: &mod(a1lo,256): a2hi = int(a0/256): return
+891 a0 = fn gt16(48825) + fn gt16(48840): &psh16 < a0: &pul > a1lo: &pul > a2hi: return
 
 892 rem check himem
 893 hm = peek (115) + 256 * peek (116): if hm < 9*4096 then print "HIMEM TOO LOW": end

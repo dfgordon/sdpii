@@ -634,10 +634,16 @@ stroke   ENT
 
          DO    _tile
 
-* update MVSRC to the address of tile fac1,
-* set prod to bytes per page,
-* set prod+1 to normal or inverse mask.
-* byt = column pairs, fac2 = rows, MVSRC = address of first tile.
+* Get a pointer to a specific tile.
+* * inputs
+*   - fac1 - tile index
+*   - fac2 - pixel rows
+*   - byt - column pairs
+*   - MVSRC - address of first tile
+* * outputs
+*   - MVSRC - address of tile
+*   - prod - bytes per page
+* * dirty - A,X,fac1,prod+1
 tileptr  JSR   mulbb
          cp16  prod;glyph ; use glyph as temp
          LDX   byt
@@ -648,32 +654,58 @@ tileptr  JSR   mulbb
 :dbl     ASL   prod
          ROL   prod+1     ; prod = tile offset
          add16 prod;MVSRC
-         STZ   prod+1
-         LDA   MODE
-         BPL   :size
-         DEC   prod+1     ; prod+1 = mask
-:size    LDA   fac2
+         LDA   fac2
          LDX   byt
          CLC
 :add2    DEX
          BEQ   :fin
          ADC   fac2
          BRA   :add2
-:fin     STA   prod       ; prod = size per page
+:fin     STA   prod       ; prod = bytes per page
          RTS
+
+* Optimized routine to render a standard glyph
+* shwglyph PHY
+*          JSR   ldglyph
+*          PLY
+*          LDA   rowTbLo,Y
+*          STA   ROWPTR
+*          LDA   rowTbHi,Y
+*          STA   ROWPTR+1
+*          PHA
+*          LDY   COLUMN
+*          LDX   #$0F
+*          STZ   MAINMEM
+* :dorow   LDA   glyph,X
+*          EOR   TXTMSK
+*          STA   (ROWPTR),Y
+*          DEX
+*          BMI   :fin
+*          LDA   ROWPTR+1
+*          CLC
+*          ADC   #4
+*          STA   ROWPTR+1
+*          CPX   #7
+*          BNE   :dorow
+*          STZ   AUXMEM
+*          PLA
+*          STA   ROWPTR+1
+*          BRA   :dorow
+* :fin     STZ   MAINMEM
+*          JMP   finTile
 
 * Load standard 14x8 glyph from stashed font.
 * Assumes we are set to read bank 2.
-* Glyph number to load is in fac1.
 * Glyphs 0-95 are pulled from pages 8-13 of aux-memory.
 * Glyphs 96-111 are pulled from page $D0 of main-memory (bank 2).
-* `glyph` receives glyph data, `fac2` set to 8, `byt` set to 1.
+* * inputs
+*   - fac1 - glyph number to load
+* * outputs
+*   - glyph - 16 byte buffer that is loaded
+* * dirty - A,fac2,MVSRC,MVEND,MVDST
 ldglyph  STZ   MVSRC
          LDA   #$08
          STA   MVSRC+1
-         STA   fac2
-         LDA   #$01
-         STA   byt
          LDA   fac1
          CMP   #$60
          BMI   :prep      ; using aux
@@ -682,13 +714,16 @@ ldglyph  STZ   MVSRC
          STA   fac1
          LDA   #$D0
          STA   MVSRC+1
-:prep    JSR   tileptr
-         CLC
+:prep    STZ   fac2
+         LUP   4
+         ASL   fac1
+         ROL   fac2
+         --^
+         add16 fac1;MVSRC ; should leave carry clear
          LDA   #$0F
          ADC   MVSRC
          STA   MVEND
-         LDA   #$00
-         ADC   MVSRC+1
+         LDA   MVSRC+1
          STA   MVEND+1
          mkptr glyph;MVDST
          LDA   MVSRC+1
@@ -707,45 +742,58 @@ ldglyph  STZ   MVSRC
          BCC   :loop
          RTS
 
-* Draw tile A at X=x/14,Y=y/8. zero-indexing.
-* DRAWPTR = pointer to tile data.
+* Render any tile.
 * If DRAWPTR in ZP, assume packed tiles, no header.
 * If DRAWPTR in page 8, assume a packed font, no header.
 * This is built to be general, not fast, see also map::fstTile.
+* * inputs
+*   - A - the tile to render
+*   - X - horizontal cell = x/14
+*   - Y - vertical cell = y/8
+*   - DRAWPTR - pointer to tile data
+* * outputs - none
+* * dirties - A,X,byt,fac1,fac2,prod,glyph,DRAWPTR,COLUMN,MVSRC,MVEND,MVDST
 tile     ENT
-         PHY
          STA   fac1
-         STX   COLUMN
+         LDA   TXTMSK
+         PHA              ; save Applesoft's value
+         STZ   TXTMSK
+         BMI   :normal
+         DEC   TXTMSK
+:normal  STX   COLUMN
          LDA   RDBNK2
 * setup pointer to this tile
          LDA   DRAWPTR+1
          BEQ   :ldbank
          CMP   #$08
-         BEQ   :ldglyph
-         cp16  DRAWPTR;MVSRC
-         BRA   :offset
+         BNE   :general
+         JSR   ldglyph
+         mkptr glyph;MVSRC
+         LDA   #1
+         STA   byt
+         LDA   #8
+         STA   fac2
+         STA   prod
+         BRA   :ezini
+
 :ldbank  mkptr $D400;MVSRC
          LDA   #2
          STA   byt
          LDA   #16
          STA   fac2
-         BRA   :off2
-:ldglyph JSR   ldglyph
-         mkptr glyph;:rep+1
          BRA   :iniLup
-:offset  LDA   (MVSRC)
+:general cp16  DRAWPTR;MVSRC
+         LDA   (MVSRC)
          inc16 MVSRC
-         STA   byt
+         STA   byt        ; column pairs
          LDA   (MVSRC)
          inc16 MVSRC
          ASL
          ASL
          ASL
          STA   fac2       ; pixel-rows
-:off2    JSR   tileptr
-         cp16  MVSRC;:rep+1
-* tile is loaded and/or referenced
-:iniLup  PLY
+:iniLup  JSR   tileptr
+:ezini   cp16  MVSRC;:rep+1
          STZ   AUXMEM
          LDX   prod
          DEX
@@ -755,11 +803,10 @@ tile     ENT
          LDX   prod
          DEX
          JSR   :dopage
-         LDA   RDROM
-         RTS
+         JMP   finTile
 * subroutine to paint current page
-:dopage  PHY
-         PHY
+:dopage  PHY              ; this will stay constant
+         PHY              ; this will be disturbed
 :iniRow  LDA   rowTbLo,Y
          STA   ROWPTR
          LDA   rowTbHi,Y
@@ -769,7 +816,7 @@ tile     ENT
          STA   fac1
 * loop over columns
 :rep     LDA   $FFFF,X    ; variable operand
-         EOR   prod+1
+         EOR   TXTMSK
          paint
          INY
          DEX
@@ -790,8 +837,20 @@ tile     ENT
          PLY
          RTS
 
+* cleanup after rendering tile
+finTile  LDA   RDROM
+         PLA
+         STA   TXTMSK
+         RTS
+
 * handle output redirection to the DHGR screen.
-* character to output should be in A.
+* * inputs
+*   - A - character to output
+*   - cursor control - CH, CV, WLEFT, WWIDTH, WBOT
+*   - DRAWPTR - address of font, if ZP use stashed font
+* * outputs
+*   - cursor control - CH, CV
+* * dirty - same as `tile` except all registers clean
 gout     ENT
          CLD              ; required per Apple
          PHX
@@ -923,7 +982,12 @@ abs8     ENT
          RTS
 
 * Multiply two bytes to get a word
-* prod = fac1 * fac2, fac1 is destroyed, fac2 is preserved
+* * inputs
+*   - fac1 - first factor
+*   - fac2 - second factor
+* * outputs
+*   - prod - 16 bit result
+* * dirty - A,X,fac1
 mulbb    ENT
          STZ   prod
          STZ   prod+1
@@ -979,8 +1043,13 @@ mulbb    ENT
          
 * Get remainder allowing for signed numerator by a simple method.
 * This is fast if quotient is small, slow if quotient is large.
-* prod = numerator, LE fac1,fac2 = denominator.
-* result is in prod.
+* * inputs
+*   - fac1 - denominator low
+*   - fac2 - denominator high
+*   - prod - numerator
+* * outputs
+*   - prod - remainder
+* * dirties - A
 mod      ENT
          LDA   prod+1
          BMI   :neg

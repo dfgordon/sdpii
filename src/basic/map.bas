@@ -12,7 +12,7 @@
 11 pd = pd + 1: &mod(pd,tcount): &tile #pd at 39,21: return
 
 18 rem indefinite progress
-19 &clear 1,23 to 40,24: &mode = 128: vtab 23: print "Working...": &mode = 0: return
+19 &clear 1,23 to 40,24: inverse: vtab 23: print "Working...": normal: return
 
 20 rem get upper
 21 a = peek(49152): if a < 128 then 21
@@ -63,8 +63,7 @@
 90 rem scroll map
 91  ds = 1 + (peek(49249)>127)*3: if peek (49250)>127 then gosub 103
 92  x = x + dx*ds: y = y + dy*ds: &mod(x,lx): &mod(y,ly)
-96  poke 0,a1lo: poke 1,a2hi
-99  &map at x-xhalf,y-yhalf to x+xhalf,y+yhalf at x00,y00: gosub 54: return
+96  &map (l0): &map at x-xhalf,y-yhalf to x+xhalf,y+yhalf at x00,y00: gosub 54: return
 
 100 rem place tile(s)
 101 if peek(49249)>127 then dx=2: dy=1: goto 105
@@ -158,16 +157,15 @@
 851 for i = 0 to 7: poke a0-8+i,0: next: poke a0-7,1: poke a0-6,lz: return
 
 860 rem reset level to 0
-861 z = 0: l0 = m0
-862 a1lo = l0: &mod(a1lo,256): a2hi = int(l0/256): return: rem set level pointer
+861 z = 0: l0 = m0: return
 
 870 rem increase level
 871 if z + 1 = lz then return
-872 z = z + 1: l0 = l0 + 6 + lx*ly: goto 862
+872 z = z + 1: l0 = l0 + 6 + lx*ly: return
 
 880 rem decrease level
 881 if z = 0 then return
-882 z = z - 1: l0 = l0 - 6 - lx*ly: goto 862
+882 z = z - 1: l0 = l0 - 6 - lx*ly: return
 
 890 rem setup workspace
 891 a0 = 8 + fn gt16 (48825) + fn gt16 (48840): rem leave 8 bytes for conversion to extended format
@@ -252,5 +250,3 @@
 9064 rem   and an extended map is saved.  If a0<>m0, we have an extended map, and denizens
 9065 rem   are referenced to a0.  In this case the 8 byte gap is simply not used.
 9070 rem aux = size of auxiliary data in bytes
-
-9999 end: rem minifier L3 will choke without this (why?)

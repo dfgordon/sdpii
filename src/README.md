@@ -35,7 +35,7 @@ This information comes from *Beneath Apple ProDOS*, and from experimenting with 
 
 ## Bank Switching
 
-SDP II uses auxiliary and bank-switched memory to stash a standard size (14x8) font, and a standard size (28x16) map set.  The auxiliary stack provides a "cyclic stack" accessible from Applesoft.
+SDP II uses auxiliary and bank-switched memory to stash a standard size (14x8) font, and a standard size (28x16) map set.  The auxiliary stack page is used as storage for a stack that can be directly accessed from Applesoft.
 
 This will not interfere with the operation of the RAM disk, but accessing `/RAM` may corrupt the stashed font (see above).
 
@@ -51,7 +51,7 @@ Up to 48 map tiles can be stored in pages 212 - 223 of bank 2.  DHRLIB users mus
 
 This is a ProDOS reserved area that Apple never used.  To minimize the possibility of conflicts, one can save the displaced memory to disk and disable interrupts, restoring when done.  This is done by the `MAP` program.
 
-### Cyclic Stack
+### Auxiliary Stack
 
 The `&psh` and `&pul` ampersands allow byte-values to be pushed onto, and pulled from, the auxiliary stack page.  The "stack" wraps around when it hits the storage boundary (usually the full page).
 

@@ -36,8 +36,8 @@ endMap   EQU   $204       ; word
 subDat   EQU   $206
 
          DO    _tile/2
-avCell   DFB   0,0        ; cell index of the avatar
-endCell  DFB   0,0        ; cell index at end of view
+avCell   DFB   0,0        ; cell indices of the avatar
+endCell  DFB   0,0        ; cell indices at end of view
 avatar   ENT
          DFB   0
 * order matters : west,east,south,north

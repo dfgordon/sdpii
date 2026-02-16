@@ -4,7 +4,7 @@
 4  gosub 800: & vers: &pul > vers(0): &pul > vers(1): &pul > vers(2): gosub 50: gosub 8: goto 850
 
 5  ds = 1: if peek(49249)>127 then ds = 10: rem move cursor
-6  x = x - ds*(a=8) + ds*(a=21): y = y - ds*(a=11) + ds*(a=10): &mod(x,560): &mod(y,192): if pr=5 then gosub 17
+6  x = x - ds*(a=8) + ds*(a=21): y = y - ds*(a=11) + ds*(a=10): &mod(x,560): &mod(y,192): if pr=5 then gosub 18
 7  return
 
 8 text: home: print d$;"pr#3": print chr$(17): return: rem 40 column text home
@@ -12,12 +12,13 @@
 
 10 rem edit prompt
 11 &tellp(addr,bit,cnt): &clear 1,24: if pr > 5 then pr = 1
-12 htab 1: vtab 24: on pr goto 13,14,15,16,17
-13 print "TAB=prompt, ESC=exit, SPC=stroke": return
-14 print chr$(5)chr$(9)"=move,1=line,2=trap,3=tri,x=xor": return
-15 print chr$(5)"b=brush,c=color,d=dither,^x=cut,^z=pop": return
-16 print "brush="str$(br)",len="str$(addr-a0)"."str$(8-bit)",cmd="str$(cnt): return
-17 &trap at 0,13,184 to 0,13,191: htab 3: print str$(x)","str$(y)"   ";: return 
+12 if pm >= 128 then inverse
+13 htab 1: vtab 24: on pr goto 14,15,16,17,18
+14 print "TAB=prompt, ESC=exit, SPC=stroke": normal: return
+15 print chr$(5)chr$(9)"=move,1=line,2=trap,3=tri,x=xor": normal: return
+16 print chr$(5)"b=brush,c=color,d=dither,^x=cut,^z=pop": normal: return
+17 print "brush="str$(br)",len="str$(addr-a0)"."str$(8-bit)",cmd="str$(cnt): normal: return
+18 &trap at 0,13,184 to 0,13,191: htab 3: print str$(x)","str$(y)"   ";: normal: return 
 
 20 rem get upper
 21 a = peek(49152): if a < 128 then 21
@@ -59,7 +60,7 @@
  
 80 rem generalized move cursor
 81 if peek(49250)<128 then x = x(n): y = y(n): gosub 5: x(n) = x: y(n) = y: return
-85 for i=0 to 3: x = x(i): y = y(i): pr = 0: gosub 5: x(i) = x: y(i) = y: next: pr = 5: gosub 17: return
+85 for i=0 to 3: x = x(i): y = y(i): pr = 0: gosub 5: x(i) = x: y(i) = y: next: pr = 5: gosub 18: return
 
 110  rem stroke
 111  if ps = 0 then &mode=128: &stroke#br at x,y: &mode=pm: return
@@ -85,7 +86,7 @@
 212 ci = 1: gosub 900: &rec: &hcolor=cl(1),cl(2),cl(3),cl(4): goto 114
 
 300 rem line mode
-301 &clear 1,24: pr=5: vtab 24: gosub 17: htab 13: print "Line: "chr$(5)chr$(9)", SPC"
+301 &clear 1,24: pr=5: vtab 24: gosub 18: htab 13: print "Line: "chr$(5)chr$(9)", SPC"
 302 &rec: &move to x,y: goto 307
 303 &mode=128: &hplot x0,y0 to x,y: gosub 20: &hplot x0,y0 to x,y: &mode=pm: gosub 5
 304 if a = 27 then gosub 10: return
@@ -96,7 +97,7 @@
 400 rem trapezoid mode
 401 x(0) = x: y(0) = y: x(1) = x+10: y(1) = y: n = 0
 402 x(2) = x: y(2) = y+5: x(3) = x+10: y(3) = y+5:
-403 &clear 1,24: pr=5: vtab 24: gosub 17: htab 13: print "Trap: "chr$(5)chr$(6)chr$(9)", TAB, SPC"
+403 &clear 1,24: pr=5: vtab 24: gosub 18: htab 13: print "Trap: "chr$(5)chr$(6)chr$(9)", TAB, SPC"
 404 &mode=128:gosub 430: gosub 20: gosub 430: &mode=pm: gosub 80: gosub 420
 405 if a = 32 then gosub 410: goto 404
 406 if a = 27 then gosub 10: x = x(n): y = y(n): return
@@ -118,7 +119,7 @@
 
 450 rem triangle mode
 451 x(0) = x: y(0) = y: x(1) = x+10: y(1) = y+5: x(2) = x: y(2) = y+10: n = 0
-452 &clear 1,24: pr=5: vtab 24: gosub 17: htab 13: print "Tri: "chr$(5)chr$(6)chr$(9)", TAB, SPC"
+452 &clear 1,24: pr=5: vtab 24: gosub 18: htab 13: print "Tri: "chr$(5)chr$(6)chr$(9)", TAB, SPC"
 453 &mode=128: gosub 480: gosub 20: gosub 480: &mode=pm: gosub 80
 454 if a = 32 then gosub 460: a = 9
 455 if a = 27 then gosub 10: x = x(n): y = y(n): return

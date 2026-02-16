@@ -3,12 +3,22 @@
          DSK   dhrlib
          ORG   $4000
          ASM   dhrlib.S
+         SNA   main
          ASM   parse.S
+         SNA   main
          ASM   core.S
+         SNA   main
          ASM   draw.S
+         SNA   main
          ASM   map.S
+         SNA   main
          ASM   denizen.S
+         SNA   main
          ASM   encode.S
+         SNA   main
          ASM   decode.S
+         SNA   main
          ASM   bitstream.S
+         SNA   main
          ASM   scroll.S
+         SNA   main

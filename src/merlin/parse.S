@@ -8,9 +8,11 @@
          PUT   equiv
          USE   macros
 
-* cyclic stack info.  The stack data goes on the auxiliary stack.
+* auxiliary stack info.  The stack data is kept in auxiliary memory page 1.
 stkptr   HEX   00         ; pointer to current stack data
 stkmask  DFB   %11111111  ; control how much of page is used
+
+         DO    _pics
 
 * parse (address,op-count) into (stream,X00)
 parsSeek ENT
@@ -50,6 +52,8 @@ parsTell ENT
          RTS
 :err     JMP   badTyp
 
+         FIN
+
 * save A in the last variable
 saveByt  ENT
          TAY
@@ -82,8 +86,7 @@ bitwise8 ENT
          JSR   stash
          CMP   #$00
          BNE   illQ
-         JSR   CHKCOM
-         JSR   GETBYT
+         JSR   COMBYT
          PHX
          JSR   CHKCLS
          JSR   unstash
@@ -112,8 +115,7 @@ unstash  cp16  zptr;VARPNT
 txtPt    ENT
          JSR   GETBYT
          PHX
-         JSR   CHKCOM
-         JSR   GETBYT
+         JSR   COMBYT
          TXA
          TAY
          PLX
@@ -159,6 +161,8 @@ mapPt    ENT
          PLX
          RTS
 
+         DO    _pics
+
 * check X00,X within 560x192 DHR grid
 bound    ENT
          DO    _bound
@@ -183,7 +187,9 @@ bndBrsh  ENT
          BCS   illQ
          RTS
 
-* push X onto cyclic stack.
+         FIN
+
+* push X onto auxiliary stack.
 psh      ENT
          LDA   stkptr
          INC
@@ -196,7 +202,7 @@ psh      ENT
          STY   stkptr
          RTS
 
-* pull from cyclic stack into X.    
+* pull from auxiliary stack into X.    
 pul      ENT
          LDY   stkptr
          STA   ALTZP
