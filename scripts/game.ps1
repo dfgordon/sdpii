@@ -4,6 +4,9 @@
 # Run from root project directory
 # (from VSCode just push button)
 
+# Now build.ps1 also takes care of building the game libraries.
+# This script might go away.
+
 #Requires -Version 7.4
 Set-Variable ErrorActionPreference "Stop"
 Set-Variable PSNativeCommandUseErrorActionPreference $true

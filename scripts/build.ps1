@@ -1,5 +1,6 @@
-# PowerShell script to create floppy distro
-# Run from root project directory
+# PowerShell script to create floppy distro.
+# Also writes updated libraries to fimg.
+# Run from root project directory.
 # (from VSCode just push button)
 
 #Requires -Version 7.4
@@ -68,6 +69,18 @@ Merlin32 ./src/merlin ./src/merlin/identify.S
 a2kit get -f ./src/merlin/identify | a2kit put -d $floppy -f identify -t bin -a 768
 a2kit get -f ./src/merlin/identify | a2kit pack -a 768 -t bin -o prodos -f identify > ./fimg/identify.json
 Move-Item ./src/merlin/identify ./build/identify
+
+# Assemble game version of MAPLIB
+./scripts/config-asm -target maplib-game -load_addr 2048
+Merlin32 ./src/merlin ./src/merlin/link32.S
+a2kit get -f ./src/merlin/dhrlib | a2kit pack -a 2048 -t bin -o prodos -f maplib.g > ./fimg/maplib.g.json
+Move-Item ./src/merlin/dhrlib ./build/maplib.g
+
+# Assemble game version of DHRLIB
+./scripts/config-asm -target dhrlib-game -load_addr 2048
+Merlin32 ./src/merlin ./src/merlin/link32.S
+a2kit get -f ./src/merlin/dhrlib | a2kit pack -a 2048 -t bin -o prodos -f dhrlib.g > ./fimg/dhrlib.g.json
+Move-Item ./src/merlin/dhrlib ./build/dhrlib.g
 
 # Assemble, put, and archive MAPLIB
 ./scripts/config-asm -target maplib -load_addr 16384

@@ -896,7 +896,7 @@ jmpPtr   HEX   00,00      ; variable ptr for indirect jump
 extTbl   HEX   00,00      ; pointer to extended ampersands
 currTbl  DFB   0          ; current ampersand table id
 
-version  DFB   0,7,0
+version  DFB   0,7,1
 
          DO    _bound
 noCMOS   ASC   "DHRLIB REQUIRES 65C02",00
