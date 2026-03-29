@@ -18,6 +18,7 @@ $tilpatt = '(?m)^(_tile\s+=\s*) [0-2]'
 $sclpatt = '(?m)^(_scroll\s+=\s*) [0-1]'
 $wrppatt = '(?m)^(_wrap\s+=\s*) [0-1]'
 $bndpatt = '(?m)^(_bound\s+=\s*) [0-1]'
+$gampatt = '(?m)^(_game\s+=\s*) [0-1]'
 $endpatt = '(\r?\n)+$'
 $orgpatt = '(?m)^\s+ORG\s+(\$[0-9a-fA-F]+)'
 
@@ -56,24 +57,28 @@ if ($target -eq "dhrlib") {
     $equivs = $equivs -replace $sclpatt,'$1 1'
     $equivs = $equivs -replace $wrppatt,'$1 1'
     $equivs = $equivs -replace $bndpatt,'$1 1'
+    $equivs = $equivs -replace $gampatt,'$1 0'
 } elseif ($target -eq "maplib") {
     $equivs = $equivs -replace $picpatt,'$1 0'
     $equivs = $equivs -replace $tilpatt,'$1 2'
     $equivs = $equivs -replace $sclpatt,'$1 0'
     $equivs = $equivs -replace $wrppatt,'$1 0'
     $equivs = $equivs -replace $bndpatt,'$1 0'
+    $equivs = $equivs -replace $gampatt,'$1 0'
 } elseif ($target -eq "dhrlib-game") {
     $equivs = $equivs -replace $picpatt,'$1 2'
     $equivs = $equivs -replace $tilpatt,'$1 2'
     $equivs = $equivs -replace $sclpatt,'$1 0'
     $equivs = $equivs -replace $wrppatt,'$1 0'
     $equivs = $equivs -replace $bndpatt,'$1 0'
+    $equivs = $equivs -replace $gampatt,'$1 1'
 } elseif ($target -eq "maplib-game") {
     $equivs = $equivs -replace $picpatt,'$1 0'
     $equivs = $equivs -replace $tilpatt,'$1 2'
     $equivs = $equivs -replace $sclpatt,'$1 0'
     $equivs = $equivs -replace $wrppatt,'$1 0'
     $equivs = $equivs -replace $bndpatt,'$1 0'
+    $equivs = $equivs -replace $gampatt,'$1 1'
 }
 
 # Now change it

@@ -3,11 +3,19 @@
          REL
          DSK   BITSTREAM.L
 
-* subroutines for handling bitstream.
-* usually called indirectly by encoder/decoder.
+* Subroutines for handling bitstream.
+* Usually called indirectly by encoder/decoder.
 * N.b. bitPtr is a countdown from 8 to 1, indicating
 * bits remaining to read at the current byte.  It should
 * never be left with the value 0.
+
+* Stream Descriptors
+* ------------------
+* The stream descriptor is 5 bytes: [address low, address high, look ahead, look back, bit pointer].
+* The working descriptor is stream[0..5], but there are aliases as follows:
+* lkAhed = stream+2
+* lkBack = stream+3
+* bitPtr = stream+4
 
          PUT   equiv
          USE   macros
@@ -16,8 +24,12 @@
 
 cmdBits  EXT
 
-* Initialize a bitstream at `stream`.
-* Checkpoint should usually follow soon.
+* Initialize the working bitstream.
+* * inputs
+*   - stream[0..2] - address of stream data
+* * outputs
+*   - stream[2..5] and aliases
+* * dirty - A
 iniBits  ENT
          LDA   (stream)
          STA   lkAhed
@@ -26,7 +38,12 @@ iniBits  ENT
          STA   bitPtr
          RTS
 
-* resume a bitstream, restoring from descriptor at zptr
+* Resume a checkpointed bitstream.
+* * inputs
+*   - zptr - pointer to the descriptor checkpoint
+* * outputs
+*   - stream[0..5]
+* * dirty - A,Y
 resmBits ENT
          LDY   #$00
 :loop    LDA   (zptr),Y
@@ -43,6 +60,11 @@ resmBits ENT
 :fin     RTS
 
 * rewind 3 bits then fall into chkpBits
+* * inputs
+*   - zptr - pointer to descriptor checkpoint
+* * outputs
+*   - (zptr)[0..5]
+* * dirty - A,Y
 rewind   CLC
          LDA   bitPtr
          ADC   #3
@@ -63,11 +85,17 @@ chkpBits ENT
          BNE   :loop
          RTS
 
-* advance by X00 commands, for stream with descriptor at zptr.
-* if `stream=0` relative move, otherwise init at `stream`.
-* for relative move set prod = current command count.
-* updated command count returned in prod, which
-* will be clamped to actual commands processed.
+* Set stream position by counting commands.
+* Command codes are assumed 3 bits.
+* * inputs
+*   - stream[0..2] - if ZP resume zptr, otherwise init working stream
+*   - zptr - checkpoint to resume (if stream+1 = 0)
+*   - X00 - count of commands to pass over
+*   - cmdBits - table of command argument lengths
+* * outputs
+*   - stream[0..5] if resuming, stream[2..5] otherwise
+*   - prod - index of the command actually arrived at
+* * dirty - A,X,Y,X00
 seek     ENT
          LDA   stream+1
          BEQ   :rel
@@ -94,8 +122,12 @@ seek     ENT
          inc16 prod
          BRA   :cmdLoop
 
-* advance seek pointer by X bits (X<248),
-* prepare for either read or write.
+* advance seek pointer by bits.
+* * inputs
+*   - X - bits to advance from 0..248
+* * outputs
+*   - stream is ready for reading or writing
+* * dirty - A
 advBits  ENT
 * let A = bit count relative to byte boundary
          CLC
@@ -129,10 +161,12 @@ advBits  ENT
          STA   bitPtr
          RTS
 
-* Read bits from bitstream into A.
-* X=number of bits to process, X>0.
-* X>8 ok but only last 8 are saved.
-* Cannot switch to writing.
+* Read bits from working stream. Cannot switch to writing without new seek.
+* * inputs
+*   - X - bits to process from 0..128
+* * outputs
+*   - A - up to the last 8 bits that were read
+* * dirty - X,Y
 rdBits   ENT
          LDY   bitPtr
          PHX
@@ -159,11 +193,13 @@ rdBits   ENT
          BRA   :loop2
 :ret     RTS
 
-* Save bits from A into bitstream.
-* X=number of bits to process, X>0.
-* X>8 ok, trailing bits will be 0.
-* Last bits only saved when stream is closed.
-* OK to switch to reading.
+* Write to bit stream.  OK to switch immediately to reading.
+* * inputs
+*   - A - up to 8 bits to write, further bits are assumed 0
+*   - X - bits to write from 0..128
+* * outputs
+*   - stream is updated except for remainder bits which are written upon closing the stream
+* * dirty - A,X,Y
 stBits   ENT
          LDY   bitPtr
 :loop    LSR   lkAhed
@@ -187,6 +223,7 @@ stBits   ENT
          RTS
 
 * Save the last few bits when done
+* * dirty - A,Y
 clsBits  ENT
          LDA   bitPtr
          AND   #$07

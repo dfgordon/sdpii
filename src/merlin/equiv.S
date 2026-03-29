@@ -13,6 +13,7 @@ _bound   =     1          ; bounds check &s
 _scroll  =     1          ; scroll &
 _pics    =     3          ; see above
 _tile    =     2          ; see above
+_game    =     0
 maxBrsh  =     7
 
 * Token overloads
@@ -37,6 +38,7 @@ prn_t    =     $8A
 pop_t    =     $a1
 stop_t   =     $b3
 clear_t  =     $bd
+get_t    =     $be
 
 * ZP non-overlapping (0-5 ok for temp)
 

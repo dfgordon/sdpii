@@ -664,35 +664,42 @@ tileptr  JSR   mulbb
 :fin     STA   prod       ; prod = bytes per page
          RTS
 
+         DO    _game
 * Optimized routine to render a standard glyph
-* shwglyph PHY
-*          JSR   ldglyph
-*          PLY
-*          LDA   rowTbLo,Y
-*          STA   ROWPTR
-*          LDA   rowTbHi,Y
-*          STA   ROWPTR+1
-*          PHA
-*          LDY   COLUMN
-*          LDX   #$0F
-*          STZ   MAINMEM
-* :dorow   LDA   glyph,X
-*          EOR   TXTMSK
-*          STA   (ROWPTR),Y
-*          DEX
-*          BMI   :fin
-*          LDA   ROWPTR+1
-*          CLC
-*          ADC   #4
-*          STA   ROWPTR+1
-*          CPX   #7
-*          BNE   :dorow
-*          STZ   AUXMEM
-*          PLA
-*          STA   ROWPTR+1
-*          BRA   :dorow
-* :fin     STZ   MAINMEM
-*          JMP   finTile
+* * inputs
+*   - TXTMSK - EOR mask to use
+*   - fac1 - glyph number to show
+*   - Y,COLUMN - screen cell
+* * dirty - A,X,Y,ROWPTR,glyph[0..16]
+shwglyph PHY
+         JSR   ldglyph
+         PLY
+         LDA   rowTbLo,Y
+         STA   ROWPTR
+         LDA   rowTbHi,Y
+         STA   ROWPTR+1
+         PHA
+         LDY   COLUMN
+         LDX   #$0F
+         STZ   MAINMEM
+:dorow   LDA   glyph,X
+         EOR   TXTMSK
+         STA   (ROWPTR),Y
+         DEX
+         BMI   :fin
+         LDA   ROWPTR+1
+         CLC
+         ADC   #4
+         STA   ROWPTR+1
+         CPX   #7
+         BNE   :dorow
+         STZ   AUXMEM
+         PLA
+         STA   ROWPTR+1
+         BRA   :dorow
+:fin     STZ   MAINMEM
+         JMP   finTile
+         FIN
 
 * Load standard 14x8 glyph from stashed font.
 * Assumes we are set to read bank 2.
@@ -767,6 +774,9 @@ tile     ENT
          BEQ   :ldbank
          CMP   #$08
          BNE   :general
+         DO    _game
+         JMP   shwglyph
+         ELSE
          JSR   ldglyph
          mkptr glyph;MVSRC
          LDA   #1
@@ -775,6 +785,7 @@ tile     ENT
          STA   fac2
          STA   prod
          BRA   :ezini
+         FIN
 
 :ldbank  mkptr $D400;MVSRC
          LDA   #2

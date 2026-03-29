@@ -783,6 +783,69 @@ ampZoom  JSR   CHKOPN
 
          FIN
 
+get      MAC
+         TXA
+         CMP   #]1
+         BNE   done
+         LDA   #]2
+         STA   DX
+         LDA   #]3
+         STA   DY
+         JMP   parseget
+done     <<<
+
+         DO    _game
+* &get(a,dx,dy)
+* get ascii keypress into a, and test all direction keys to fill dx,dy
+ampGet   LDA   $C000
+         BPL   ampGet
+         STZ   $C010
+         AND   #$7F
+* uppercase
+         CMP   #97
+         BCC   :pshk
+         SBC   #32
+:pshk    TAX
+         PHA
+         STZ   DX
+         STZ   DY
+* arrow keys
+         get   8;255;0
+         get   21;1;0
+         get   10;0;1
+         get   11;0;255
+* numeric keypad
+         get   49;255;1
+         get   50;0;1
+         get   51;1;1
+         get   52;255;0
+         get   54;1;0
+         get   55;255;255
+         get   56;0;255
+         get   57;1;255
+parseget JSR   CHKOPN
+         JSR   PTRGET
+         PLY
+         LDA   #0
+         JSR   saveInt
+         JSR   CHKCOM
+         JSR   PTRGET
+         LDY   DX
+         JSR   :svint
+         JSR   CHKCOM
+         JSR   PTRGET
+         LDY   DY
+         JSR   :svint
+         JSR   CHKCLS
+         RTS
+:svint   BMI   :neg
+         LDA   #0
+         BRA   :ret
+:neg     LDA   #$ff
+:ret     JSR   saveInt
+         RTS
+         FIN
+
          DO    _bound
 cmosErr  JSR   BELL
          LDY   #$00
@@ -875,6 +938,11 @@ ampTbl   ASC   'VERS',00
          DA    ampDen
          FIN
 
+         DO    _game
+         DFB   get_t,0
+         DA    ampGet
+         FIN
+
          ASC   'MOD',00
          DA    ampMod
          DFB   and_t,0
@@ -896,7 +964,7 @@ jmpPtr   HEX   00,00      ; variable ptr for indirect jump
 extTbl   HEX   00,00      ; pointer to extended ampersands
 currTbl  DFB   0          ; current ampersand table id
 
-version  DFB   0,7,1
+version  DFB   0,8,0
 
          DO    _bound
 noCMOS   ASC   "DHRLIB REQUIRES 65C02",00

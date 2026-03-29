@@ -17,12 +17,6 @@ Set-Variable hd ($env:USERPROFILE + "\OneDrive\Documents\appleii\DISKS\microdriv
 Set-Variable prodosPath "dev/sdpii/"
 Set-Variable basicFiles @("config","paint","tile","repaint","map")
 
-if (!(Test-Path build)) {
-    mkdir ./build
-} else {
-    Remove-Item ./build/*lib
-}
-
 # Get the version from the WOZ metadata
 $vers = (Get-Content ./scripts/meta.json | ConvertFrom-Json).woz2.meta.version
 # Check DHRLIB version
@@ -55,18 +49,15 @@ foreach ($f in $basicFiles) {
 ./scripts/config-asm -target maplib -load_addr 16384
 Merlin32 ./src/merlin ./src/merlin/link32.S
 a2kit get -f ./src/merlin/dhrlib | a2kit put -d $hd -f ($prodosPath + "maplib") -t bin -a 16384
-a2kit get -f ./src/merlin/dhrlib | a2kit pack -a 16384 -t bin -o prodos -f maplib > ./fimg/maplib.json
-Move-Item ./src/merlin/dhrlib ./build/maplib
 
 # Assemble and put DHRLIB
 ./scripts/config-asm -target dhrlib -load_addr 16384
 Merlin32 ./src/merlin ./src/merlin/link32.S
 a2kit get -f ./src/merlin/dhrlib | a2kit put -d $hd -f ($prodosPath + "dhrlib") -t bin -a 16384
-a2kit get -f ./src/merlin/dhrlib | a2kit pack -a 16384 -t bin -o prodos -f dhrlib > ./fimg/dhrlib.json
-Move-Item ./src/merlin/dhrlib ./build/dhrlib
 
 # Verify
 ./scripts/verify-distro -disk $hd -path $prodosPath
 
 # cleanup
 Remove-Item ./src/merlin/_FileInformation.txt -Force
+Remove-Item ./src/merlin/dhrlib
