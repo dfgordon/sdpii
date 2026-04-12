@@ -278,9 +278,17 @@ ampPh16  JSR   chkLess
          JSR   psh
          RTS
 
-* &pul > x
+* &pul > x, or &pul > 0 to discard value (latter is game only)
 ampPl    JSR   chkGtr
-         JSR   PTRGET
+         DO    _game
+         LDA   (TXTPTR)
+         CMP   #'0'
+         BNE   :sav
+         JSR   CHRGET
+         JSR   pul
+         RTS
+         FIN
+:sav     JSR   PTRGET
          LDA   VALTYP
          BNE   :err
          JSR   pul
@@ -795,7 +803,7 @@ get      MAC
 done     <<<
 
          DO    _game
-* &get(a,dx,dy)
+* &get a[,dx,dy]
 * get ascii keypress into a, and test all direction keys to fill dx,dy
 ampGet   LDA   $C000
          BPL   ampGet
@@ -823,11 +831,13 @@ ampGet   LDA   $C000
          get   55;255;255
          get   56;0;255
          get   57;1;255
-parseget JSR   CHKOPN
-         JSR   PTRGET
+parseget JSR   PTRGET
          PLY
          LDA   #0
          JSR   saveInt
+         LDA   (TXTPTR)
+         CMP   #44
+         BNE   :rts
          JSR   CHKCOM
          JSR   PTRGET
          LDY   DX
@@ -836,14 +846,12 @@ parseget JSR   CHKOPN
          JSR   PTRGET
          LDY   DY
          JSR   :svint
-         JSR   CHKCLS
-         RTS
+:rts     RTS
 :svint   BMI   :neg
          LDA   #0
          BRA   :ret
 :neg     LDA   #$ff
-:ret     JSR   saveInt
-         RTS
+:ret     JMP   saveInt
          FIN
 
          DO    _bound
@@ -964,7 +972,7 @@ jmpPtr   HEX   00,00      ; variable ptr for indirect jump
 extTbl   HEX   00,00      ; pointer to extended ampersands
 currTbl  DFB   0          ; current ampersand table id
 
-version  DFB   0,8,0
+version  DFB   0,9,0
 
          DO    _bound
 noCMOS   ASC   "DHRLIB REQUIRES 65C02",00

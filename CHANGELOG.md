@@ -4,6 +4,16 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [Unreleased]
+
+### New Features
+
+* `&pul > 0` pulls a byte without saving the value (game only)
+
+### Breaking Changes
+
+* `&get` syntax changed (game only)
+
 ## [0.8.0] - 2026-03-29
 
 ### New Features
