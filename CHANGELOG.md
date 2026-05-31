@@ -4,22 +4,34 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
-## [Unreleased]
+## [0.10.0] - 2026-05-31
+
+### Fixes
+
+* Output redirection to DHGR works better in immediate mode
+* Painter no longer errors out on edge positioned trapezoids
+* Build refinements
 
 ### New Features
 
-* `&pul > 0` pulls a byte without saving the value (game only)
+* `&input` ampersand (game library only)
+
+## [0.9.0] - 2026-04-12
+
+### New Features
+
+* `&pul > 0` pulls a byte without saving the value (game library only)
 
 ### Breaking Changes
 
-* `&get` syntax changed (game only)
+* `&get` syntax changed (game library only)
 
 ## [0.8.0] - 2026-03-29
 
 ### New Features
 
-* faster text in game library only
-* `&get` ampersand in game library only
+* faster text (game library only)
+* `&get` ampersand (game library only)
 
 ## [0.7.1] - 2026-02-22
 

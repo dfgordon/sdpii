@@ -72,10 +72,14 @@ quad2    DFB   00
 dx1      DDB   0000
 dx2      DDB   0000
 
-* Use X0 to get COLUMN, BITPOS, clrMask1, clrMask2,
+* Set the horizontal DHGR cursor.
 * Pretty wrapping works for -1024<=X0<1024.
 * Wrapping constrains cursor to screen buffer for any X0.
 * Optimization is to split into 64-pix bins.
+* * inputs
+*   - X0 - 16 bit horizontal coordinate
+* * outputs - COLUMN, BITPOS, clrMask1, clrMask2
+* * dirties - A,X,Y, may change aux state
 setHCurs ENT
          phX0
          DO    _wrap*_pics
@@ -149,9 +153,12 @@ setHCurs ENT
 
 * Move cursor horizontally with wrap-around. X0 unchanged.
 * Direction given by N.  For vertical use ROM.
+* * inputs
+*   - N - if set decrement, otherwise increment
+* * outputs - COLUMN, BITPOS, clrMask1, clrMask2
+* * dirties - A, may change aux state
 movHor   BPL   incHor
-*decHor
-         LDA   BITPOS
+_decHor  LDA   BITPOS
          LSR
          CMP   #%01000000
          BEQ   :new80c
@@ -184,7 +191,12 @@ incHor   LDA   BITPOS
          wrapR
 :fin     RTS
 
-* Set ROWPTR using Y0.
+* Set the vertical DHGR cursor.
+* * inputs
+*   - Y0 - 8 bit vertical coordinate
+*   - PAGE - first page of screen buffer
+* * outputs - ROWPTR
+* * dirties - A,Y
 setVCurs ENT
          LDA   Y0
          DO    _wrap*_pics
@@ -267,6 +279,9 @@ dhrInit  ENT
 
 * Set color mask at ZP address Y to A + X*16.
 * If X>15 or A>15 throw error.
+* * inputs - A,X,Y
+* * outputs - (Y)
+* * dirties - A
 setClr   ENT
          CPX   #$10
          BCS   :illQ
@@ -284,13 +299,23 @@ setClr   ENT
 :illQ    LDX   #ILLQTY
          JMP   DOERR
 
-* plot one pixel with color and mode mask
+* move to pixel and plot with color and mode mask (slow)
 * (really plots all pixels in BITPOS)
+* * inputs
+*   - X0 - 16 bit horizontal position
+*   - Y0 - 8 bit vertical position
+* * outputs - screen pixel
+* * dirties - A,X,Y
 plot     ENT
-         JSR   setHCurs   ; plot at X0,Y0 (slow)
+         JSR   setHCurs
          JSR   setVCurs
+* plot pixel at current cursor with color and mode mask (fast)
+* (really plots all pixels in BITPOS)
+* * inputs - internal cursor data
+* * outputs - screen pixel
+* * dirties - A
 plotc    ENT
-         PHY              ; plot at cursor (faster)
+         PHY
          LDY   COLUMN
          LDA   MODE
          BPL   :dither
@@ -314,8 +339,14 @@ plotc    ENT
          RTS
 
 * Prepare line from cursor to A+X*256,Y.
-* X0, Y0 are used to work out deltas.
-* Sets X, Y, X0, Y0, DX, DY, HGRQUAD, HGRE, HCOUNT.
+* * inputs
+*   - X0 - 16 bit horizontal start
+*   - Y0 - 8 bit vertical start
+*   - A - low 8 bits of horizontal end
+*   - X - high 8 bits of horizontal end
+*   - Y - 8 bit vertical end
+* * outputs - X, Y, X0, Y0, DX, DY, HGRQUAD, HGRE, HCOUNT
+* * dirties - A
 iniLine  PHA              ; x1 low
          SEC              ; prepare dx
          SBC   X0
@@ -853,68 +884,6 @@ finTile  LDA   RDROM
          PLA
          STA   TXTMSK
          RTS
-
-* handle output redirection to the DHGR screen.
-* * inputs
-*   - A - character to output
-*   - cursor control - CH, CV, WLEFT, WWIDTH, WBOT
-*   - DRAWPTR - address of font, if ZP use stashed font
-* * outputs
-*   - cursor control - CH, CV
-* * dirty - same as `tile` except all registers clean
-gout     ENT
-         CLD              ; required per Apple
-         PHX
-         PHY
-         PHA
-         TAX              ; save char
-         LDA   CHKAUX
-         PHA
-         LDA   DRAWPTR+1
-         PHA
-         BNE   :go
-         LDA   #$08
-         STA   DRAWPTR+1
-:go      TXA              ; restore char
-         EOR   #$80
-         CMP   #$0D
-         BEQ   :nxtRow
-         LDX   CH
-         LDY   CV
-         SEC
-         SBC   #$20
-         BPL   :render
-         ADC   #$7B       ; 5 -> 96, 6 -> 97, ...
-:render  JSR   tile
-         LDX   CH
-         INX
-         TXA
-         SEC
-         SBC   WLEFT
-         CMP   WWIDTH
-         BCS   :nxtRow
-         STX   CH
-         BRA   :cleanup
-:nxtRow  LDA   WLEFT
-         STA   CH
-         LDY   CV
-         INY
-         CPY   WBOT
-         BCS   :cleanup
-         STY   CV
-* this was called by ProDOS, and we might be in the midst of
-* processing BASIC output routines
-:cleanup STZ   MAINMEM
-         PLA
-         STA   DRAWPTR+1
-         PLA
-         BPL   :mainmem
-         STZ   AUXMEM
-:mainmem PLA
-         PLY
-         PLX
-         RTS
-         
 
 * print str with length A and ptr INDEX at X,Y. zero-indexing.
 * font must be 14 pixels wide.  destroys stat and X00.

@@ -25,6 +25,9 @@
 22 a = a - 128: if a > 96 then a = a - 32
 23 a$ = chr$(a): poke 49168,0: return
 
+25 rem draw handle
+26 x = x(n) - 2: y = y(n) - 1: &mod(x,560): &mod(y,192): &stroke #1 at x,y: return
+
 30  rem menu subroutine
 31 n = 0: m = 0: htab 1: vtab l: print "1) ";: inverse : print pn$(0): normal: if p > 0 then  for i = 1 to p: print i + 1;") ";pn$(i): next 
 32  htab 1: vtab l + p + 2: print w$;: gosub 20: if a =  13 or a = b then  return 
@@ -98,7 +101,7 @@
 401 x(0) = x: y(0) = y: x(1) = x+10: y(1) = y: n = 0
 402 x(2) = x: y(2) = y+5: x(3) = x+10: y(3) = y+5:
 403 &clear 1,24: pr=5: vtab 24: gosub 18: htab 13: print "Trap: "chr$(5)chr$(6)chr$(9)", TAB, SPC"
-404 &mode=128:gosub 430: gosub 20: gosub 430: &mode=pm: gosub 80: gosub 420
+404 &mode=128: gosub 25: gosub 430: gosub 20: gosub 25: gosub 430: &mode=pm: gosub 80: gosub 420
 405 if a = 32 then gosub 410: goto 404
 406 if a = 27 then gosub 10: x = x(n): y = y(n): return
 407 if a = 9 then n = n + 1: &mod(n,4)
@@ -114,13 +117,12 @@
 424 if i<n and x(n)<x(i) then x(i) = x(n)
 425 y(i) = y(n): parity = j: &mod(parity,2): i = j - 2 * parity + 1: y(i) = y(j): return
 
-430 &stroke #1 at x(n)-2,y(n)-1 
-431 &hplot x(0),y(0) to x(1),y(1) to x(3),y(3) to x(2),y(2) to x(0),y(0): return
+430 &hplot x(0),y(0) to x(1),y(1) to x(3),y(3) to x(2),y(2) to x(0),y(0): return
 
 450 rem triangle mode
 451 x(0) = x: y(0) = y: x(1) = x+10: y(1) = y+5: x(2) = x: y(2) = y+10: n = 0
 452 &clear 1,24: pr=5: vtab 24: gosub 18: htab 13: print "Tri: "chr$(5)chr$(6)chr$(9)", TAB, SPC"
-453 &mode=128: gosub 480: gosub 20: gosub 480: &mode=pm: gosub 80
+453 &mode=128: gosub 25: gosub 480: gosub 20: gosub 25: gosub 480: &mode=pm: gosub 80
 454 if a = 32 then gosub 460: a = 9
 455 if a = 27 then gosub 10: x = x(n): y = y(n): return
 456 if a = 9 then n = n + 1: &mod(n,3)
@@ -136,8 +138,7 @@
 468 if x(1) = x(3) then x(1) = x
 469 return: rem after returning we cycle the vertex
 
-480 &stroke #1 at x(n)-2,y(n)-1
-481 &hplot x(0),y(0) to x(1),y(1) to x(2),y(2) to x(0),y(0): return
+480 &hplot x(0),y(0) to x(1),y(1) to x(2),y(2) to x(0),y(0): return
 
 490 rem swap i,j
 491 x = x(i): x(i) = x(j): x(j) = x: y = y(i): y(i) = y(j): y(j) = y: return
@@ -199,7 +200,7 @@
 913 if ci = 0 then 930
 914 if ci>4 then ci = 1
 920 cl(ci) = cl(0): &hcolor=cl(1),cl(2),cl(3),cl(4): &trap at 28,43,184 to 28,43,191
-930 &hcolor=cl(ci): &trap at 0,15,184 to 0,15,191: get a$: if a$ = " " then return
+930 &hcolor=cl(ci): &trap at 0,15,184 to 0,15,191: get a$: if a$ = " " then print: return
 940 if a$ = chr$(8) then cl(0) = cl(0) - 1: goto 911
 950 if a$ = chr$(21) then cl(0) = cl(0) + 1: goto 911
 951 if ci>0 and a$ = chr$(9) then ci = ci + 1

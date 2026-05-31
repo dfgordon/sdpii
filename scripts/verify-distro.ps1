@@ -34,14 +34,29 @@ function Test-Size {
     }
 }
 
+function Test-Load {
+    param (
+        [string]$FileName,
+        [string]$expected
+    )
+    $aux = (a2kit get -d $disk -f ($path + $FileName) -t any | ConvertFrom-Json).aux
+    if ($aux -ne $expected) {
+        Write-Error($FileName + " should have aux = " + $expected + ", got " + $aux)
+    }
+}
+
 # Check sizes
 
 $env:RUST_LOG = "error"
 Set-Variable lomem 0x8b00
 Set-Variable largestMap (8 + 6 + 128*128 + 4)
 Test-Size "maplib" ($lomem-$largestMap-0x4000)
-Test-Size "dhrlib" 0x1800
+Test-Size "dhrlib" 0x1820
 Test-Size "paint" 0x1800
 Test-Size "repaint" 0x1800
 Test-Size "map" 0x1800
 Test-Size "tile" 0x1800
+
+# Check load addresses
+
+Test-Load "font1" "0060"

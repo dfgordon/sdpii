@@ -13,7 +13,7 @@ _bound   =     1          ; bounds check &s
 _scroll  =     1          ; scroll &
 _pics    =     3          ; see above
 _tile    =     2          ; see above
-_game    =     0
+_game    =     0          ; additional &s
 maxBrsh  =     7
 
 * Token overloads
@@ -39,6 +39,7 @@ pop_t    =     $a1
 stop_t   =     $b3
 clear_t  =     $bd
 get_t    =     $be
+input_t  =     $84
 
 * ZP non-overlapping (0-5 ok for temp)
 
@@ -111,11 +112,17 @@ WWIDTH   =     $21
 WTOP     =     $22
 WBOT     =     $23
 
+* Screen holes used by 80 column firmware
+
+CH_OLD   =     $47B
+CH_80    =     $57B
+
 * ROM routines for parsing and variables
 
 BELL     =     $FF3A
 PRBYTE   =     $FDDA
 COUT     =     $FDED
+RDKEY    =     $FD0C
 DATA     =     $D995
 CHRGET   =     $00B1
 CHRGOT   =     $00B7

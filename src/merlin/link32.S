@@ -22,3 +22,5 @@
          SNA   main
          ASM   scroll.S
          SNA   main
+         ASM   io.S
+         SNA   main

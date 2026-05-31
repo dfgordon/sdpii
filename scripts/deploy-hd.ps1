@@ -32,7 +32,7 @@ if ($vers -ne $dhrlib_vers) {
 }
 
 # precleaning
-foreach ($f in ($basicfiles + @("dhrlib","maplib"))) {
+foreach ($f in ($basicfiles + @("dhrlib","maplib") + @("font1"))) {
     try { a2kit delete -d $hd -f ($prodosPath + $f) } catch { Write-Warning ("no pre-existing " + $f) }
 }
 
@@ -54,6 +54,9 @@ a2kit get -f ./src/merlin/dhrlib | a2kit put -d $hd -f ($prodosPath + "maplib") 
 ./scripts/config-asm -target dhrlib -load_addr 16384
 Merlin32 ./src/merlin ./src/merlin/link32.S
 a2kit get -f ./src/merlin/dhrlib | a2kit put -d $hd -f ($prodosPath + "dhrlib") -t bin -a 16384
+
+# Update the font in case it changed
+a2kit get -f ./fimg/font1.json | a2kit put -d $hd -f ($prodosPath + "font1") -t any
 
 # Verify
 ./scripts/verify-distro -disk $hd -path $prodosPath
