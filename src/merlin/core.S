@@ -18,9 +18,11 @@
 * clrMask2 - odd row pattern
 * We re-use some of the HGR cursor locations.
 
-* table of tile row addresses
+* table of high bytes of the 24 row addresses with mod(y,8)=0
 rowTbHi  ENT
          HEX   202021212222232320202121222223232020212122222323
+
+* table of low bytes of the 24 row addresses with mod(y,8)=0
 rowTbLo  ENT
          HEX   008000800080008028a828a828a828a850d050d050d050d0
 

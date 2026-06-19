@@ -1,7 +1,7 @@
          XC    OFF
          XC
          REL
-         DSK   INPUT.L
+         DSK   IO.L
 
          USE   macros
          PUT   equiv

@@ -108,8 +108,4 @@ a2kit get -f ./src/basic/config.txt | a2kit put -d $floppy -f sdpii.config -t tx
 
 # Cleanup
 Remove-Item ./src/merlin/_FileInformation.txt -Force
-
-# If disk image notebook available, leave out the catalog,
-# so the merlin output is more readily viewable.
-
-#a2kit catalog -d $floppy
+Remove-Item ./build/dhrlib_*_Output.txt
