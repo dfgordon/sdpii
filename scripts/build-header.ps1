@@ -42,4 +42,4 @@ function Convert-AssemblyToEquivalences {
     }
 }
 
-(Get-Content ./build/dhrlib_*_Output.txt) | Convert-AssemblyToEquivalences > ./build/dhrlib.equ.S
+(Get-Content ./build/dhrlib_*_Output.txt) | Convert-AssemblyToEquivalences > ./build/dhrlib.g.equ.S
