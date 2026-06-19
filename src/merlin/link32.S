@@ -5,22 +5,22 @@
          ASM   dhrlib.S
          SNA   main
          ASM   parse.S
-         SNA   main
+         SNA   parse
          ASM   core.S
-         SNA   main
+         SNA   core
          ASM   draw.S
-         SNA   main
+         SNA   draw
          ASM   map.S
-         SNA   main
+         SNA   map
          ASM   denizen.S
-         SNA   main
+         SNA   denizen
          ASM   encode.S
-         SNA   main
+         SNA   encode
          ASM   decode.S
-         SNA   main
+         SNA   decode
          ASM   bitstream.S
-         SNA   main
+         SNA   bitstream
          ASM   scroll.S
-         SNA   main
+         SNA   scroll
          ASM   io.S
-         SNA   main
+         SNA   io

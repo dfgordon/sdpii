@@ -76,11 +76,13 @@ Merlin32 ./src/merlin ./src/merlin/link32.S
 a2kit get -f ./src/merlin/dhrlib | a2kit pack -a 2048 -t bin -o prodos -f maplib.g > ./fimg/maplib.g.json
 Move-Item ./src/merlin/dhrlib ./build/maplib.g
 
-# Assemble game version of DHRLIB
+# Assemble game version of DHRLIB and generate header file
 ./scripts/config-asm -target dhrlib-game -load_addr 2048
-Merlin32 ./src/merlin ./src/merlin/link32.S
+Merlin32 -V ./src/merlin ./src/merlin/link32.S
 a2kit get -f ./src/merlin/dhrlib | a2kit pack -a 2048 -t bin -o prodos -f dhrlib.g > ./fimg/dhrlib.g.json
 Move-Item ./src/merlin/dhrlib ./build/dhrlib.g
+Move-Item ./src/merlin/dhrlib_*_Output.txt ./build
+./scripts/build-header.ps1
 
 # Assemble, put, and archive MAPLIB
 ./scripts/config-asm -target maplib -load_addr 16384

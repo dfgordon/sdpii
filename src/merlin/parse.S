@@ -15,6 +15,10 @@ stkmask  DFB   %11111111  ; control how much of page is used
          DO    _pics
 
 * parse (address,op-count) into (stream,X00)
+* * inputs - BASIC expressions
+* * outputs - stream,X00
+* * dirties - A,Y, maybe X
+* * throws - BASIC errors
 parsSeek ENT
          JSR   CHKOPN
          JSR   NUMEVL
@@ -27,6 +31,10 @@ parsSeek ENT
          RTS
 
 * parse (address,bit,op-count) from (stream,bitPtr,prod)
+* * inputs - BASIC variables
+* * outputs - BASIC variables
+* * dirties - A,Y, maybe X
+* * throws - BASIC errors
 parsTell ENT
          JSR   CHKOPN
          JSR   PTRGET
@@ -55,10 +63,18 @@ parsTell ENT
          FIN
 
 * save A in the last variable
+* * inputs - A
+* * outputs - BASIC variable
+* * dirties - A,X,Y
+* * throws - BASIC errors
 saveByt  ENT
          TAY
          LDA   #$00
 * save Y + 256*A in the last variable
+* * inputs - A,Y
+* * outputs - BASIC variable
+* * dirties - A,X,Y
+* * throws - BASIC errors
 saveInt  ENT
          JSR   INT2FP
          LDX   VARPNT
@@ -190,6 +206,12 @@ bndBrsh  ENT
          FIN
 
 * push X onto auxiliary stack.
+* * inputs
+*   - X - value to push
+*   - stkmask - mask the stack pointer (controls size of stack)
+* * outputs
+*   - Y - copy of new stack pointer
+* * dirties - A
 psh      ENT
          LDA   stkptr
          INC
@@ -203,6 +225,12 @@ psh      ENT
          RTS
 
 * pull from auxiliary stack into X.    
+* * inputs
+*   - stkmask - mask the stack pointer (controls size of stack)
+* * outputs
+*   - X - value that was pulled
+*   - A - copy of new stack pointer
+* * dirties - Y
 pul      ENT
          LDY   stkptr
          STA   ALTZP

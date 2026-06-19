@@ -79,7 +79,7 @@ dx2      DDB   0000
 * * inputs
 *   - X0 - 16 bit horizontal coordinate
 * * outputs - COLUMN, BITPOS, clrMask1, clrMask2
-* * dirties - A,X,Y, may change aux state
+* * dirties - A,X,Y,aux-state
 setHCurs ENT
          phX0
          DO    _wrap*_pics
@@ -156,7 +156,7 @@ setHCurs ENT
 * * inputs
 *   - N - if set decrement, otherwise increment
 * * outputs - COLUMN, BITPOS, clrMask1, clrMask2
-* * dirties - A, may change aux state
+* * dirties - A, aux-state
 movHor   BPL   incHor
 _decHor  LDA   BITPOS
          LSR
@@ -246,7 +246,10 @@ setVCurs ENT
          FIN
 
 * Initialize double hi-res and DHRLIB.
-* Assumes PR#3 already done.
+* Generally 80 column firmware should be initialized first (as in PR#3).
+* * inputs - none
+* * outputs - X0, Y0, MODE, CLRBAS1, CLRBAS2, PAGE, COLUMN, ROWPTR, BITPOS, clrMask1, clrMask2
+* * dirties - A, X, Y
 dhrInit  ENT
          JSR   HGR
          STA   MAINZP
@@ -391,9 +394,9 @@ iniLine  PHA              ; x1 low
          RTS
 
 * Draw line from cursor to A+X*256,Y.
-* Cursor,X0,Y0 must be consistent.
-* Cursor,X0,Y0 are updated.
-* adapted from similar HGR routine
+* * inputs - A,X,Y, cursor (X0,Y0 are assumed consistent)
+* * outputs - cursor, X0, Y0
+* * dirties - A,X,Y,DX,DY,HGRE,HCOUNT,HGRQUAD,aux-state
 lineTo   ENT
          JSR   iniLine
 :ini     SEC
@@ -509,9 +512,12 @@ trapMov2 INC   count2
          BRA   iniTrap2
 :fin     RTS
 
-* Fill a trapezoid using horizontal lines
-* upper segment is X0,x1,Y0.
-* lower segment is x2,x3,y1
+* Fill a horizontally oriented trapezoid
+* * inputs
+*   - upper segment is X0,x1,Y0
+*   - lower segment is x2,x3,y1.
+* * outputs - none
+* * dirties - A,X,Y,HGRE,HCOUNT,HGRQUAD,DX,DY,X0,Y0,cursor
 trap     ENT
          JSR   iniTrap
          JSR   hlinet
@@ -531,8 +537,9 @@ trap     ENT
 :fin     RTS
 
 * draw horizontal line from X0,Y0 to A+X*256,Y0.
-* requires X0<A+X*256.
-* cursor updated. X0,Y0 unchanged.
+* * inputs - X0,Y0,A,X,Y0, requires X0<A+X*256.
+* * outputs - cursor is updated, but X0,Y0 are not changed
+* * dirties - A,X,Y,HCOUNT,aux-state
 hline    ENT
          SEC
          SBC   X0
@@ -618,7 +625,11 @@ fastLn   LDA   HCOUNT
          BRA   :nxt
 
 * Stroke brush X at X0,Y0.
-* X=0 is not a point, but the smallest brush.
+* * inputs
+*   - X is the brush, X=0 is the smallest brush (not a point)
+*   - X0,Y0 is the upper-left of the enclosing rectangle
+* * outputs - none
+* * dirties - A,X,Y,X0,Y0,cursor,x1,y1,DY,zptr,HCOUNT,aux-state
 stroke   ENT
          JSR   setVCurs
          mkptr brushes;zptr
@@ -674,7 +685,7 @@ stroke   ENT
 * * outputs
 *   - MVSRC - address of tile
 *   - prod - bytes per page
-* * dirty - A,X,fac1,prod+1
+* * dirties - A,X,fac1,prod+1
 tileptr  JSR   mulbb
          cp16  prod;glyph ; use glyph as temp
          LDX   byt
@@ -701,7 +712,7 @@ tileptr  JSR   mulbb
 *   - TXTMSK - EOR mask to use
 *   - fac1 - glyph number to show
 *   - Y,COLUMN - screen cell
-* * dirty - A,X,Y,ROWPTR,glyph[0..16]
+* * dirties - A,X,Y,ROWPTR,glyph[0..16]
 shwglyph PHY
          JSR   ldglyph
          PLY
@@ -740,7 +751,7 @@ shwglyph PHY
 *   - fac1 - glyph number to load
 * * outputs
 *   - glyph - 16 byte buffer that is loaded
-* * dirty - A,fac2,MVSRC,MVEND,MVDST
+* * dirties - A,fac2,MVSRC,MVEND,MVDST
 ldglyph  STZ   MVSRC
          LDA   #$08
          STA   MVSRC+1
@@ -922,7 +933,13 @@ finTile  LDA   RDROM
 *          BCC   :nxt
 *          RTS
 
-* clear A columns at X=x/14,Y=y/8
+* clear a row of text-like cells
+* * inputs
+*   - A - columns to clear in units of 14 pixel cells
+*   - X - starting column in units of 14 pixel cells
+*   - Y - row in units of 8 pixel cells
+* * outputs - none
+* * dirties - A,X,Y, HCOUNT, cursor, byt
 clear    ENT
          STA   HCOUNT
          STX   COLUMN
@@ -951,6 +968,9 @@ clear    ENT
          FIN
 
 * absolute value of accumulator
+* * inputs - A
+* * outputs - A
+* * dirties - none
 abs8     ENT
          ASL
          BCC   :pos
@@ -967,7 +987,7 @@ abs8     ENT
 *   - fac2 - second factor
 * * outputs
 *   - prod - 16 bit result
-* * dirty - A,X,fac1
+* * dirties - A,X,fac1
 mulbb    ENT
          STZ   prod
          STZ   prod+1

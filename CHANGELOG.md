@@ -4,6 +4,16 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [Unreleased]
+
+### Fixes
+
+* Standardize more docstrings
+
+### New Features
+
+* Build creates a header file for the game library
+
 ## [0.10.0] - 2026-05-31
 
 ### Fixes
