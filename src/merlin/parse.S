@@ -17,7 +17,7 @@ stkmask  DFB   %11111111  ; control how much of page is used
 * parse (address,op-count) into (stream,X00)
 * * inputs - BASIC expressions
 * * outputs - stream,X00
-* * dirties - A,Y, maybe X
+* * dirties - A,Y, {ROM parsing}
 * * throws - BASIC errors
 parsSeek ENT
          JSR   CHKOPN
@@ -33,7 +33,7 @@ parsSeek ENT
 * parse (address,bit,op-count) from (stream,bitPtr,prod)
 * * inputs - BASIC variables
 * * outputs - BASIC variables
-* * dirties - A,Y, maybe X
+* * dirties - A,Y, {ROM parsing}
 * * throws - BASIC errors
 parsTell ENT
          JSR   CHKOPN
@@ -65,7 +65,7 @@ parsTell ENT
 * save A in the last variable
 * * inputs - A
 * * outputs - BASIC variable
-* * dirties - A,X,Y
+* * dirties - A,X,Y + {ROM FP}
 * * throws - BASIC errors
 saveByt  ENT
          TAY
@@ -73,7 +73,7 @@ saveByt  ENT
 * save Y + 256*A in the last variable
 * * inputs - A,Y
 * * outputs - BASIC variable
-* * dirties - A,X,Y
+* * dirties - A,X,Y + {ROM FP}
 * * throws - BASIC errors
 saveInt  ENT
          JSR   INT2FP
@@ -95,23 +95,38 @@ stash    JSR   CHKOPN
          JSR   GETADR
          RTS
          
-* Parse (realvar,aexpr) to A,X.
-* Upon return Z = (X==0).
-* Then after some transformation, call `saveByt` to update `realvar`.
+* Parse (realvar,aexpr) to A,X=fac1.
+* Then after some operation on A,fac1, call `saveByt` to update `realvar`.
+* * inputs - BASIC variable and expression
+* * outputs
+*   - A - byte value of variable
+*   - X - byte value of expression
+*   - fac1 - byte value of expression
+*   - Z - can be used to test whether aexpr was 0
+*   - VARPNT - pointer to realvar
+* * dirties - zptr, {ROM parsing}
+* * throws - BASIC errors
 bitwise8 ENT
          JSR   stash
          CMP   #$00
          BNE   illQ
          JSR   COMBYT
-         PHX
+         STX   fac1
          JSR   CHKCLS
          JSR   unstash
          LDA   X00
-         PLX
+         LDX   fac1
          RTS
 
 * Parse (realvar,aexpr) to prod,fac.
-* Then after some transformation, call `saveInt` to update `realvar`.
+* Then after some operation on prod,fac, call `saveInt` to update `realvar`.
+* * inputs - BASIC variable and expression
+* * outputs
+*   - prod - word value of variable
+*   - fac1,fac2 - word value of expression
+*   - VARPNT - pointer to realvar
+* * dirties - zptr, {ROM parsing}
+* * throws - BASIC errors
 binary16 ENT
          JSR   stash
          STY   prod

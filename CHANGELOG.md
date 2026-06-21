@@ -4,10 +4,11 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
-## [Unreleased]
+## [0.10.1] - 2026-06-21
 
 ### Fixes
 
+* Fix bug that could spoil aux-state after `&and` or `&or`
 * Standardize more docstrings
 
 ### New Features

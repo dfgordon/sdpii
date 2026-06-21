@@ -255,15 +255,13 @@ ampBit   JSR   bitwise8
 
 * &and (realvar,aexpr)
 ampAnd   JSR   bitwise8
-         STX   stat
-         AND   stat
+         AND   fac1
          JSR   saveByt
          RTS
 
 * &or (realvar,aexpr)
 ampOr    JSR   bitwise8
-         STX   stat
-         ORA   stat
+         ORA   fac1
          JSR   saveByt
          RTS
 
@@ -918,7 +916,7 @@ jmpPtr   HEX   00,00      ; variable ptr for indirect jump
 extTbl   HEX   00,00      ; pointer to extended ampersands
 currTbl  DFB   0          ; current ampersand table id
 
-version  DFB   0,10,0
+version  DFB   0,10,1
 
          DO    _bound
 noCMOS   ASC   "DHRLIB REQUIRES 65C02",00

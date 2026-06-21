@@ -2,12 +2,12 @@
 
 Apple II double high resolution graphics:
 
-* Programs to build pictures and maps
+* Programs to build pictures, tiles, and maps
 * Assembly language modules
 * Applesoft bindings (ampersands)
     * Render pictures
     * Render map views
-    * Print text to DHGR screen
+    * Output redirection to DHGR
 
 ## Documentation
 
