@@ -27,16 +27,26 @@
 
          DO    _tile/2
 
-denizens ENT              ; variable pointer to denizen records
-         DA    $0000
-xmap     ENT              ; variable pointer to extended map
+* pointer to denizen records, usually initialized with &den(0,...)
+denizens ENT
          DA    $0000
 
-* Setup for denizen operations using a signed offset A. Returns:
-* zptr=pointer to records,
-* prod=zptr+A,
-* A=stat=denizen count,
-* status bits reflect denizen count
+* pointer to extended map, usually initialized with &den(0,...)
+xmap     ENT
+         DA    $0000
+
+* Setup for denizen operations
+* * inputs
+*   - A - signed offset
+*   - xmap - pointer to extended map, usually set by &den(0,...)
+*   - denizens - pointer to denizen buffer, usually set by &den(0,...)
+* * outputs
+*   - zptr - pointer to denizen buffer
+*   - prod - zptr + A
+*   - A - denizen count
+*   - stat - denizen count
+*   - Z - set if no denizens
+* * dirties - Y
 setup    STA   stat
          cp16  xmap;zptr
          LDY   #4
@@ -49,8 +59,13 @@ setup    STA   stat
          STA   stat
          RTS
 
-* Store stat in the map header's denizen count field.
-* This changes prod but perserves Y.
+* Update the map header
+* * inputs
+*   - stat - new denizen count
+*   - xmap - pointer to extended map, usually set by &den(0,...)
+* * outputs
+*   - map header is updated with new denizen count
+* * dirties - prod
 update   PHY
          cp16  xmap;prod
          LDY   #4
@@ -59,8 +74,13 @@ update   PHY
          PLY
          RTS
          
-* Delete a denizen at map offset X00.
-* Changes zptr, prod, stat, byt, X00.
+* Delete a denizen record, map cell is not updated.
+* * inputs
+*   - X00 - offset of map cell from start of extended map
+*   - xmap - pointer to extended map, usually set by &den(0,...)
+*   - denizens - pointer to denizen buffer, usually set by &den(0,...)
+* * outputs - updates denizen records
+* * dirties - A,Y,zptr,prod,stat,byt,X00
 del_den  ENT
          JSR   search
          BMI   :fin
@@ -80,9 +100,15 @@ del_den  ENT
          JSR   update
 :fin     RTS
 
-* Insert or replace denizen record.
-* X00=map offset, fac1=tile#, fac2=aux.
-* Changes zptr, prod, stat, byt.
+* Insert or replace denizen record, map cell is not updated.
+* * inputs
+*   - X00 - offset of map cell from start of extended map
+*   - fac1 - tile index
+*   - fac2 - aux byte
+*   - xmap - pointer to extended map, usually set by &den(0,...)
+*   - denizens - pointer to denizen buffer, usually set by &den(0,...)
+* * outputs - denizen buffer is updated
+* * dirties - A,X,Y,zptr,prod,stat,byt
 ins_den  ENT
          LDA   #$FC
          JSR   setup
@@ -145,9 +171,18 @@ ins_den  ENT
          DEY
          BRA   :loop
 
-* Put `stream - xmap` into `X00` and fall into `search`. Changes zptr, prod, stat, byt, X00.
-* Returns offset to record in Y, and tile index in A, or if search fails A=$ff.
-* Records must be sorted by offset, maximum record count is 64.
+* Get denizen using absolute cell pointer.
+* Records must be sorted by cell offset, maximum record count is 64.
+* * inputs
+*   - stream - pointer to denizen's map cell
+*   - xmap - pointer to extended map, usually set by &den(0,...)
+*   - denizens - pointer to denizen buffer, usually set by &den(0,...)
+* * outputs
+*   - Y - offset to record or $FF if not found
+*   - A - tile index or $FF if not found
+*   - zptr - pointer to start of records
+*   - prod - pointer to start of records + 2
+* * dirties - X00, stat, byt.
 get_den  ENT
          SEC
          LDA   stream
@@ -156,9 +191,18 @@ get_den  ENT
          LDA   stream+1
          SBC   xmap+1
          STA   X00+1
-* Search denizen records for offset `X00`. Changes zptr, prod, stat, byt.
-* Returns offset to record in Y, and tile index in A, or if search fails Y=A=$ff.
-* Records must be sorted by offset, maximum record count is 64.
+* Get denizen using relative cell offset.
+* Records must be sorted by cell offset, maximum record count is 64.
+* * inputs
+*   - X00 - offset of map cell from start of extended map
+*   - xmap - pointer to extended map, usually set by &den(0,...)
+*   - denizens - pointer to denizen buffer, usually set by &den(0,...)
+* * outputs
+*   - Y - offset to record or $FF if not found
+*   - A - tile index or $FF if not found
+*   - zptr - pointer to start of records
+*   - prod - pointer to start of records + 2
+* * dirties - stat, byt.
 search   ENT
          LDA   #2
          JSR   setup

@@ -147,13 +147,16 @@ mului    LDA   fac2
          BMI   :loop
          RTS
 
-* Copy submap from x1,x1+1 to x2,x2+1 into the input buffer,
-* where (stream) should point to the map level header.
+* Copy submap to the input buffer.
 * The submap view is allowed to be partly out of bounds, in which
 * case the N, S, E, W boundary tiles will be used as needed.
-* Sets endMap, increments x2/x2+1, disturbs stream.
-* Handling boundaries requires care since we have 8-bit signed
-* integers in an environment with up to 128x128 maps.
+* * inputs
+*   - x1+0,x1+1 - upper left
+*   - x2+0,x2+1 - lower right
+*   - stream - pointer to the map level header
+* * outputs
+*   - input buffer - submap including header
+* * dirties - A,X,Y,x2+0,x2+1,stream
 makemap  ENT
          LDA   (stream)
          STA   endMap
@@ -172,7 +175,9 @@ makemap  ENT
          LDA   x2+1
          SBC   x1+1
          STA   endSub+1
-* load the boundary conditions
+* Load the boundary conditions.
+* Handling boundaries requires care since we have 8-bit signed
+* integers in an environment with up to 128x128 maps.
          LDX   #3
 :rdbnd   LDA   (stream)
          STA   west,X
@@ -232,8 +237,13 @@ makemap  ENT
          BMI   :loopx2
          BRA   :nexty
 
-* Draw the submap currently in the input buffer
-* at screen coordinate X0,X0+1 (14x8 cells, 0-based).
+* Draw the submap currently in the input buffer.
+* * inputs
+*   - X0+0,X0+1 - upper left screen cell
+*   - input buffer - submap
+*   - denizen buffer - used to lookup denizens
+* * outputs - screen buffer
+* * dirties - A,X,Y,stream,fac1,x1+0,x1+1,prod
 drawmap  ENT
          cp16  begPtr;stream
          cp16  endSub;endCell

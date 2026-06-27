@@ -152,7 +152,8 @@ saveAux  DFB   0
 * amperands should close by jumping here if they are performing
 * operations that affect or depend on display switches, or if they
 * have disturbed the value of `stat`
-ampDone  LDA   CHKAUX
+ampDone  ENT
+         LDA   CHKAUX
          STA   stat
          LDA   saveAux
          JSR   restore
@@ -916,7 +917,7 @@ jmpPtr   HEX   00,00      ; variable ptr for indirect jump
 extTbl   HEX   00,00      ; pointer to extended ampersands
 currTbl  DFB   0          ; current ampersand table id
 
-version  DFB   0,10,1
+version  DFB   0,10,2
 
          DO    _bound
 noCMOS   ASC   "DHRLIB REQUIRES 65C02",00

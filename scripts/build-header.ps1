@@ -14,38 +14,43 @@ function Convert-AssemblyToEquivalences {
     )
 
     begin {
-        $entryRegex = '^.{88}(\S+)\s+(ENT|ent)(\s+|$)'
-        $moduleRegex = '^.{88}\s+DSK\s+(\S+)'
+        $moduleRegex =  '^.+\|.+\|.+\|.+\|.+\|.+\|.+\|\s+(DSK|dsk)\s+(\S+)'
+        $commentRegex = '^.+\|.+\|.+\|.+\|.+\|.+\|.+\|\s*(\*.*)'
+        $entryRegex =   '^.+\|.+\|.+\|.+\|.+\|.+\|\s*00/([0-9A-F]+).*\|\s*(\S+)\s+(ENT|ent)(\s+|$)'
         $format = @(@{Expression='label'; width=9}, @{Expression='op'; width=6}, @{Expression='addr'})
-        $outString = "* DHRLIB " + $vers + " Entry Points`n"
-        $outString += "* " + "-" * ($outString.Length-4) + "`n`n"
+        $outString = "* DHRLIB Header File`n"
+        $outString += "* ------------------`n`n"
+        $outString += "* To use DHRLIB with Merlin you will likely want to PUT both`n"
+        $outString += "* equiv.S and this file. You may want to modify equiv.S to use`n"
+        $outString += "* your own conventions for ROM and ZP locations, and modify the`n"
+        $outString += "* docstrings herein to be consistent.`n`n"
+        $tempString = "* DHRLIB " + $vers + " Entry Points`n"
+        $outString += $tempString + "* " + "-" * ($tempString.Length-3) + "`n`n"
         $moduleHeading = ""
         $docstring = ""
     }
     process {
         # this loop is over all the lines from all the sources
         $inLines | ForEach-Object {
-            if ($_.Length -gt 88) {
-                if ($_ -match $moduleRegex) {
-                    $moduleHeading = "* Entries from Module " + $Matches[1] + "`n"
-                    $moduleHeading += "* " + "-" * ($moduleHeading.Length-3) + "`n`n"
-                    $docstring = ""
-                } elseif ($_.Substring(88).StartsWith("*")) {
-                    $docstring += $_.Substring(88) + "`n"
-                } elseif ($docstring.Length -gt 0 -and $_ -match $entryRegex) {
-                    $outString += $moduleHeading
-                    $outString += $docstring
-                    $outString += (([PSCustomObject]@{
-                        label = $Matches[1]
-                        op = "EQU"
-                        addr = "$" + $_.Substring(67,4)
-                    } | Format-Table -Property $format -HideTableHeaders | Out-String) -replace '(?m)^\s*\r?\n', '')
-                    $outString += "`n"
-                    $docstring = ""
-                    $moduleHeading = ""
-                } else {
-                    $docstring = ""
-                }
+            if ($_ -match $moduleRegex) {
+                $moduleHeading = "* Entries from Module " + $Matches[2] + "`n"
+                $moduleHeading += "* " + "-" * ($moduleHeading.Length-3) + "`n`n"
+                $docstring = ""
+            } elseif ($_ -match $commentRegex) {
+                $docstring += $Matches[1] + "`n"
+            } elseif ($docstring.Length -gt 0 -and $_ -match $entryRegex) {
+                $outString += $moduleHeading
+                $outString += $docstring
+                $outString += (([PSCustomObject]@{
+                    label = $Matches[2]
+                    op = "EQU"
+                    addr = "$" + $Matches[1]
+                } | Format-Table -Property $format -HideTableHeaders | Out-String) -replace '(?m)^\s*\r?\n', '')
+                $outString += "`n"
+                $docstring = ""
+                $moduleHeading = ""
+            } else {
+                $docstring = ""
             }
         }
     }
